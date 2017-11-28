@@ -345,7 +345,7 @@ def q1(S_RANS, Omega_RANS):
     q1 = np.zeros((a[2],a[3]))
     for i1 in range(a[2]):
         for i2 in range(a[3]):               
-            raw = 0.5*(np.trace(np.dot(S_RANS[:,:,i1,i2],S_RANS[:,:,i1,i2])) - np.trace(np.dot(Omega_RANS[:,:,i1,i2],-1*(Omega_RANS[:,:,i1,i2]))))
+            raw = 0.5*(np.abs(np.trace(np.dot(S_RANS[:,:,i1,i2],S_RANS[:,:,i1,i2]))) - np.abs(np.trace(np.dot(Omega_RANS[:,:,i1,i2],-1*(Omega_RANS[:,:,i1,i2])))))
             norm = np.trace(np.dot(S_RANS[:,:,i1,i2],S_RANS[:,:,i1,i2]))
             q1[i1,i2] = raw/(np.abs(raw) + np.abs(norm))
     return q1
@@ -390,6 +390,20 @@ def q4(U, gradP):
 
 
 
+print (q4(U_RANS, gradp_RANS))
+
+def q5(k_RANS, S_RANS, turbLengthScale=1):
+    a = np.shape(k_RANS)
+    q5 = np.zeros((a[1],a[2]))
+    for i1 in range(a[1]):
+        for i2 in range(a[2]):    
+            epsilon = 0.16 * k_RANS[:, i1, i2]**1.5 / turbLengthScale
+            raw = k_RANS[:, i1, i2] / epsilon
+            norm = 1 / np.sqrt(np.trace(np.dot(S_RANS[:, :, i1, i2],S_RANS[:, :, i1, i2])))
+            q5[i1,i2] = raw/(np.abs(raw) + np.abs(norm))
+    return q5
+
+print(q5(k_RANS, S_RANS, 1))
 
 def q6(gradP, gradU, p_RANS):
     a = np.shape(gradP)
@@ -405,8 +419,4 @@ def q6(gradP, gradU, p_RANS):
             q6[i1,i2] = ruw / norm
     return q6
     
-
-
-print (q4(U_RANS, gradp_RANS))
-
 print(q6(gradp_RANS, gradU_RANS, p_RANS))
