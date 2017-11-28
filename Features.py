@@ -7,7 +7,7 @@ Created on Mon Nov 27 12:09:45 2017
 
 from __future__ import division
 import numpy as np
-
+import os
 
 
 time_end      = 30000 
@@ -21,7 +21,10 @@ nx_RANS       = 140
 ny_RANS       = 150
 
 #Specify home directory from where the data can be found
-home = 'D:/CSE minor/'
+dir = os.path.dirname(__file__)
+home = os.path.realpath('MinorCSE') + '\\'
+#home = '../CSE minor/'
+
 dir_RANS  = home + ('Re%i_%s' % (Re,TurbModel))
 
 
@@ -278,7 +281,7 @@ def getSRTensors(gradU,scale=False,k=1.0,eps=1.0):
     a = np.shape(gradU)
     S = np.zeros(a)
     R = np.zeros(a)
-    
+    print(a);
     for i1 in range(a[2]):
         for i2 in range(a[3]):               
             #strain rate
@@ -316,6 +319,9 @@ gradp_RANS        = getRANSPlane(U_RANSlist,'2D', nx_RANS, ny_RANS, 'vector')
 #Reynolds stress tensor
 tau_RANSlist  = getRANSSymmTensor(dir_RANS, time_end, 'R')
 tau_RANS      = getRANSPlane(tau_RANSlist,'2D', nx_RANS, ny_RANS, 'tensor')
+print("test")
+print(np.shape(tau_RANSlist))
+print(np.shape(tau_RANS))
 
 #k
 k_RANSlist    = getRANSScalar(dir_RANS, time_end, 'k')
@@ -326,9 +332,7 @@ gradk_RANSlist    = getRANSVector(dir_RANS, time_end, 'grad(k)')
 gradk_RANS        = getRANSPlane(U_RANSlist,'2D', nx_RANS, ny_RANS, 'vector')
 
 #S R tensor
-S_RANSlist, Omega_RANSlist  = getSRTensors(gradU_RANSlist)
-S_RANS                = getRANSPlane(S_RANSlist,'2D', nx_RANS, ny_RANS, 'tensor')
-Omega_RANS             = getRANSPlane(Omega_RANSlist,'2D', nx_RANS, ny_RANS, 'tensor')
+S_RANS, Omega_RANS  = getSRTensors(gradU_RANS)
 
 def q1(S_RANS, Omega_RANS): 
     a = np.shape(S_RANS)
