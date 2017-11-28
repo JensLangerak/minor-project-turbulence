@@ -344,6 +344,16 @@ def q1(S_RANS, Omega_RANS):
             q1[i1,i2] = raw/(np.abs(raw) + np.abs(norm))
     return q1
 
+def q2(k_RANS, U_RANS):
+    a = np.shape(k_RANS)
+    q2 = np.zeros((a[1],a[2]))
+    for i1 in range(a[1]):
+        for i2 in range(a[2]):               
+            raw = k_RANS[:,i1,i2][0]
+            norm = 0.5*(np.inner(U_RANS[:, i1, i2], U_RANS[:, i1, i2]))
+            q2[i1,i2] = raw/(np.abs(raw) + np.abs(norm))
+    return q2
+
 
 
 
