@@ -350,7 +350,7 @@ def q2(k_RANS, U_RANS):
     for i1 in range(a[1]):
         for i2 in range(a[2]):               
             raw = k_RANS[:,i1,i2][0]
-            norm = 0.5*(np.inner(U_RANS[:, i1, i2], U_RANS[:, i1, i2]))
+            norm = 0.5*(np.inner(U_RANS[:, i1, i2], U_RANS[:, i1, i2])) # inner is equivalent to sum UiUi
             q2[i1,i2] = raw/(np.abs(raw) + np.abs(norm))
     return q2
 
