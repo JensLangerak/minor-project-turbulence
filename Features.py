@@ -384,9 +384,29 @@ def q4(U, gradP):
             for k in range(a[0]):
                 raw += U[k,i1,i2] * gradP[k,i1,i2]
                 for i in range(a[0]):
-                    norm += math.sqrt( gradP[k,i1,i2] *  gradP[k,i1,i2] * U[i, i1, i2] * U[i, i1, i2])
+                    norm += math.fabs( gradP[k,i1,i2] * U[i, i1, i2])
             q4[i1,i2] = raw / norm;
     return q4
 
 
+
+
+def q6(gradP, gradU, p_RANS):
+    a = np.shape(gradP)
+    q6 = np.zeros((a[1],a[2]))
+    for i1 in range(a[1]):
+        for i2 in range(a[2]):
+            norm = 0
+            ruw = 0
+            for k in range(a[0]):
+                ruw += math.fabs(gradP[k, i1, i2])
+                norm += gradU[k, k, i1, i2] * gradU[k, k, i1, i2];
+            norm *= 0.5 * p_RANS[0, i1, i2]
+            q6[i1,i2] = ruw / norm
+    return q6
+    
+
+
 print (q4(U_RANS, gradp_RANS))
+
+print(q6(gradp_RANS, gradU_RANS, p_RANS))
