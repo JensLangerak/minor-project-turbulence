@@ -339,7 +339,9 @@ def q1(S_RANS, Omega_RANS):
     q1 = np.zeros((a[2],a[3]))
     for i1 in range(a[2]):
         for i2 in range(a[3]):               
-            q1[i1,i2] = 0.5*(np.sqrt(np.trace(np.dot(S_RANS[:,:,i1,i2],np.transpose(S_RANS[:,:,i1,i2]))))**2 - np.sqrt(np.trace(np.dot(Omega_RANS[:,:,i1,i2],np.transpose(Omega_RANS[:,:,i1,i2]))))**2)
+            raw = 0.5*(np.trace(np.dot(S_RANS[:,:,i1,i2],S_RANS[:,:,i1,i2])) - np.trace(np.dot(Omega_RANS[:,:,i1,i2],-1*(Omega_RANS[:,:,i1,i2]))))
+            norm = np.trace(np.dot(S_RANS[:,:,i1,i2],S_RANS[:,:,i1,i2]))
+            q1[i1,i2] = raw/(np.abs(raw) + np.abs(norm))
     return q1
 
 
