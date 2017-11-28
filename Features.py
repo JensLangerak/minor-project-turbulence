@@ -330,6 +330,13 @@ S_RANSlist, Omega_RANSlist  = getSRTensors(gradU_RANSlist)
 S_RANS                = getRANSPlane(S_RANSlist,'2D', nx_RANS, ny_RANS, 'tensor')
 Omega_RANS             = getRANSPlane(Omega_RANSlist,'2D', nx_RANS, ny_RANS, 'tensor')
 
+def q1(S_RANS, Omega_RANS): 
+    a = np.shape(S_RANS)
+    q1 = np.zeros((a[2],a[3]))
+    for i1 in range(a[2]):
+        for i2 in range(a[3]):               
+            q1[i1,i2] = 0.5*(np.sqrt(np.trace(np.dot(S_RANS[:,:,i1,i2],np.transpose(S_RANS[:,:,i1,i2]))))**2 - np.sqrt(np.trace(np.dot(Omega_RANS[:,:,i1,i2],np.transpose(Omega_RANS[:,:,i1,i2]))))**2)
+    return q1
 
 
 
