@@ -8,6 +8,8 @@ Created on Mon Nov 27 12:09:45 2017
 from __future__ import division
 import numpy as np
 import os
+import math
+
 
 
 time_end      = 30000 
@@ -357,6 +359,19 @@ def q2(k_RANS, U_RANS):
 
 
 
+def q4(U, gradP):
+    a = np.shape(gradP)
+    q4 = np.zeros((a[1],a[2]))
+    for i1 in range(a[1]):
+        for i2 in range(a[2]):
+            raw = 0
+            norm = 0
+            for k in range(a[0]):
+                raw += U[k,i1,i2] * gradP[k,i1,i2]
+                for i in range(a[0]):
+                    norm += math.sqrt( gradP[k,i1,i2] *  gradP[k,i1,i2] * U[i, i1, i2] * U[i, i1, i2])
+            q4[i1,i2] = raw / norm;
+    return q4
 
 
-
+print (q4(U_RANS, gradp_RANS))
