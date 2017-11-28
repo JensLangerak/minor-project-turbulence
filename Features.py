@@ -325,11 +325,15 @@ print(np.shape(tau_RANS))
 
 #k
 k_RANSlist    = getRANSScalar(dir_RANS, time_end, 'k')
-k_RANS        = getRANSPlane(p_RANSlist,'2D', nx_RANS, ny_RANS, 'scalar')
+k_RANS        = getRANSPlane(k_RANSlist,'2D', nx_RANS, ny_RANS, 'scalar')
 
 #k gradient
 gradk_RANSlist    = getRANSVector(dir_RANS, time_end, 'grad(k)')
 gradk_RANS        = getRANSPlane(U_RANSlist,'2D', nx_RANS, ny_RANS, 'vector')
+
+#distance to wall
+yWall_RANSlist = getRANSScalar(dir_RANS, time_end, 'yWall')
+yWall_RANS        = getRANSPlane(yWall_RANSlist,'2D', nx_RANS, ny_RANS, 'scalar')
 
 #S R tensor
 S_RANS, Omega_RANS  = getSRTensors(gradU_RANS)
@@ -354,6 +358,17 @@ def q2(k_RANS, U_RANS):
             q2[i1,i2] = raw/(np.abs(raw) + np.abs(norm))
     return q2
 
+nu=1.4285714285714286e-03
+
+def q3(k_RANS, yWall_RANS, nu):
+    a = np.shape(k_RANS)
+    q3 = np.zeros((a[1],a[2]))
+    for i1 in range(a[1]):
+        for i2 in range(a[2]):               
+            q3[i1,i2] = np.minimum((np.sqrt(k_RANS[:,i1,i2][0])*yWall_RANS[:, i1, i2])/(50*nu), 2)
+    return q3
+    
+print(q3(k_RANS, yWall_RANS, nu))
 
 
 
