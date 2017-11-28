@@ -390,3 +390,16 @@ def q4(U, gradP):
 
 
 print (q4(U_RANS, gradp_RANS))
+
+def q5(k_RANS, S_RANS, turbLengthScale=1):
+    a = np.shape(k_RANS)
+    q5 = np.zeros((a[1],a[2]))
+    for i1 in range(a[1]):
+        for i2 in range(a[2]):    
+            epsilon = 0.16 * k_RANS[:, i1, i2]**1.5 / turbLengthScale
+            raw = k_RANS[:, i1, i2] / epsilon
+            norm = 1 / np.sqrt(np.trace(np.dot(S_RANS[:, :, i1, i2],S_RANS[:, :, i1, i2])))
+            q5[i1,i2] = raw/(np.abs(raw) + np.abs(norm))
+    return q5
+
+print(q5(k_RANS, S_RANS, turbLenghtScale=1))
