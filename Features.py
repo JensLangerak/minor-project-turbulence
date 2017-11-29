@@ -337,6 +337,10 @@ gradk_RANS        = getRANSPlane(U_RANSlist,'2D', nx_RANS, ny_RANS, 'vector')
 yWall_RANSlist = getRANSScalar(dir_RANS, time_end, 'yWall')
 yWall_RANS        = getRANSPlane(yWall_RANSlist,'2D', nx_RANS, ny_RANS, 'scalar')
 
+#omega
+omega_RANSlist  = getRANSScalar(dir_RANS, time_end, 'omega')
+omega_RANS      = getRANSPlane(omega_RANSlist, '2D', nx_RANS, ny_RANS, 'scalar')
+
 #S R tensor
 S_RANS, Omega_RANS  = getSRTensors(gradU_RANS)
 
@@ -390,20 +394,21 @@ def q4(U, gradP):
 
 
 
-print (q4(U_RANS, gradp_RANS))
+print(q4(U_RANS, gradp_RANS))
 
-def q5(k_RANS, S_RANS, turbLengthScale=1):
+Cmu=0.09
+def q5(k_RANS, S_RANS, Cmu, omega_RANS):
     a = np.shape(k_RANS)
     q5 = np.zeros((a[1],a[2]))
     for i1 in range(a[1]):
         for i2 in range(a[2]):    
-            epsilon = 0.16 * k_RANS[:, i1, i2]**1.5 / turbLengthScale
+            epsilon = Cmu * k_RANS[:, i1, i2] * omega_RANS[:, i1, i2]
             raw = k_RANS[:, i1, i2] / epsilon
             norm = 1 / np.sqrt(np.trace(np.dot(S_RANS[:, :, i1, i2],S_RANS[:, :, i1, i2])))
             q5[i1,i2] = raw/(np.abs(raw) + np.abs(norm))
     return q5
 
-print(q5(k_RANS, S_RANS, 1))
+print(q5(k_RANS, S_RANS, Cmu, omega_RANS))
 
 def q6(gradP, gradU, p_RANS):
     a = np.shape(gradP)
