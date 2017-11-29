@@ -425,3 +425,16 @@ def q6(gradP, gradU, p_RANS):
     return q6
     
 print(q6(gradp_RANS, gradU_RANS, p_RANS))
+
+def q7(U_RANS, gradU_RANS):
+    a = np.shape(U_RANS)
+    q7 = np.zeros((a[1],a[2]))
+    for i1 in range(a[1]):
+        for i2 in range(a[2]):    
+            raw = np.einsum('i, j, ij', U_RANS[:, i1, i2], U_RANS[:, i1, i2], gradU_RANS[:, :, i1, i2])
+            norm = np.sqrt(np.einsum('l, l, i, ij, k, kj', U_RANS[:, i1, i2], U_RANS[:, i1, i2],U_RANS[:, i1, i2], gradU_RANS[:, :, i1, i2], U_RANS[:, i1, i2], gradU_RANS[:, :, i1, i2]))
+            q7[i1,i2] = raw/(np.abs(raw) + np.abs(norm))
+    return q7
+
+print(q7(U_RANS, gradU_RANS))
+
