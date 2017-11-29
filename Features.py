@@ -321,9 +321,6 @@ gradp_RANS        = getRANSPlane(U_RANSlist,'2D', nx_RANS, ny_RANS, 'vector')
 #Reynolds stress tensor
 tau_RANSlist  = getRANSSymmTensor(dir_RANS, time_end, 'R')
 tau_RANS      = getRANSPlane(tau_RANSlist,'2D', nx_RANS, ny_RANS, 'tensor')
-print("test")
-print(np.shape(tau_RANSlist))
-print(np.shape(tau_RANS))
 
 #k
 k_RANSlist    = getRANSScalar(dir_RANS, time_end, 'k')
@@ -438,3 +435,15 @@ def q7(U_RANS, gradU_RANS):
 
 print(q7(U_RANS, gradU_RANS))
 
+
+def q9(tau_RANS, k_RANS):
+    a = np.shape(k_RANS)
+    q9 = np.zeros((a[1],a[2]))
+    for i1 in range(a[1]):
+        for i2 in range(a[2]):    
+            raw = np.sqrt(np.trace(np.dot(tau_RANS[:, :, i1, i2],np.transpose(tau_RANS[:, :, i1, i2]))))
+            norm = k_RANS[:, i1, i2]
+            q9[i1,i2] = raw/(np.abs(raw) + np.abs(norm))
+    return q9
+
+print(q9(tau_RANS, k_RANS))
