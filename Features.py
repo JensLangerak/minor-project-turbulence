@@ -437,6 +437,20 @@ def q7(U_RANS, gradU_RANS):
 print(q7(U_RANS, gradU_RANS))
 
 
+def q8(U, gradK):
+    a = np.shape(gradP)
+    q8 = np.zeros((a[1],a[2]))
+    for i1 in range(a[1]):
+        for i2 in range(a[2]):
+            norm = 0
+            q8[i1,i2]  = np.einsum('i',U[:,i1,i2], gradK[:,i1,i2])
+                
+              
+    return q8
+    
+print(q8(gradp_RANS, gradU_RANS, p_RANS))
+
+
 def q9(tau_RANS, k_RANS):
     a = np.shape(k_RANS)
     q9 = np.zeros((a[1],a[2]))
@@ -452,16 +466,5 @@ print(q9(tau_RANS, k_RANS))
 
 
 
-def q8(U, gradK):
-    a = np.shape(gradP)
-    q8 = np.zeros((a[1],a[2]))
-    for i1 in range(a[1]):
-        for i2 in range(a[2]):
-            norm = 0
-            q8[i1,i2]  = np.einsum('i',U[:,i1,i2], gradK[:,i1,i2])
-                
-              
-    return q8
-    
-print(q6(gradp_RANS, gradU_RANS, p_RANS))
+
 
