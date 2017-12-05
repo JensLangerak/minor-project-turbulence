@@ -669,6 +669,8 @@ if DO_WRITE:
     remove(file_path)
     move(abs_path, file_path)
 
+print(aij_DNS)
+print(dataRANS_aij)
 
 
 #%% PLOTTING
