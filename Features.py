@@ -375,9 +375,6 @@ def q3(k_RANS, yWall_RANS, nu):
             q3[i1,i2] = np.minimum((np.sqrt(k_RANS[:,i1,i2][0])*yWall_RANS[:, i1, i2])/(50*nu), 2)
     return q3
     
-print(q3(k_RANS, yWall_RANS, nu))
-
-
 
 def q4(U, gradP):
     a = np.shape(gradP)
@@ -391,8 +388,6 @@ def q4(U, gradP):
     return q4
 
 
-print(q4(U_RANS, gradp_RANS))
-
 Cmu=0.09
 def q5(k_RANS, S_RANS, Cmu, omega_RANS):
     a = np.shape(k_RANS)
@@ -405,7 +400,6 @@ def q5(k_RANS, S_RANS, Cmu, omega_RANS):
             q5[i1,i2] = raw/(np.fabs(raw) + np.fabs(norm))
     return q5
 
-print(q5(k_RANS, S_RANS, Cmu, omega_RANS))
 
 def q6(gradP, gradU, p_RANS, U_RANS):
     a = np.shape(gradP)
@@ -419,8 +413,6 @@ def q6(gradP, gradU, p_RANS, U_RANS):
             q6[i1,i2] = raw/(np.fabs(raw) + np.fabs(norm))
     return q6
     
-print(q6(gradp_RANS, gradU_RANS, p_RANS,U_RANS))
-
 
 def q7(U_RANS, gradU_RANS):
     a = np.shape(U_RANS)
@@ -433,8 +425,6 @@ def q7(U_RANS, gradU_RANS):
     return q7
 
 
-print(q7(U_RANS, gradU_RANS))
-
 
 def q8(U, gradK, Tau, S):
     a = np.shape(U)
@@ -445,8 +435,7 @@ def q8(U, gradK, Tau, S):
             norm = np.einsum('jk,jk', Tau[:,:, i1, i2], S[:,:, i1, i2])
             q8[i1,i2] = raw/(np.fabs(raw) + np.fabs(norm))              
     return q8
-
-print (q8(U_RANS,gradk_RANS,tau_RANS,S_RANS))    
+  
 
 def q9(tau_RANS, k_RANS):
     a = np.shape(k_RANS)
@@ -458,10 +447,38 @@ def q9(tau_RANS, k_RANS):
             q9[i1,i2] = raw/(np.fabs(raw) + np.fabs(norm))
     return q9
 
-print(q9(tau_RANS, k_RANS))
 
-
-
+def getFeatures():
+    a = np.shape(k_RANS)
+    feature = np.zeros((9, a[1],a[2]))
+    feature[0,:,:] = q1(S_RANS, Omega_RANS)
+    feature[1,:,:] = q2(k_RANS, U_RANS)
+    feature[2,:,:] = q3(k_RANS, yWall_RANS, nu)
+    feature[3,:,:] = q4(U_RANS, gradp_RANS)
+    feature[4,:,:] = q5(k_RANS, S_RANS, Cmu, omega_RANS)
+    feature[5,:,:] = q6(gradp_RANS, gradU_RANS, p_RANS,U_RANS)
+    feature[6,:,:] = q7(U_RANS, gradU_RANS)
+    feature[7,:,:] = q8(U_RANS, gradk_RANS, tau_RANS, S_RANS)
+    feature[8,:,:] = q9(tau_RANS, k_RANS)
+    return feature
+    
+#def getFeatures2(): #this shape is needed for scikit but the other function follows the indices convention in the code.
+#    a = np.shape(k_RANS)
+#    feature = np.zeros((9, a[1],a[2]))
+#    feature[:,:,0] = q1(S_RANS, Omega_RANS)
+#    feature[:,:,1] = q2(k_RANS, U_RANS)
+#    feature[:,:,2] = q3(k_RANS, yWall_RANS, nu)
+#    feature[:,:,3] = q4(U_RANS, gradp_RANS)
+#    feature[:,:,4] = q5(k_RANS, S_RANS, Cmu, omega_RANS)
+#    feature[:,:,5] = q6(gradp_RANS, gradU_RANS, p_RANS,U_RANS)
+#    feature[:,:,6] = q7(U_RANS, gradU_RANS)
+#    feature[:,:,7] = q8(U_RANS, gradk_RANS, tau_RANS, S_RANS)
+#    feature[:,:,8] = q9(tau_RANS, k_RANS)
+#    return feature
+    
+test = getFeatures()
+t2 = getFeatures()
+t2 = np.reshape(t2,(9, 140 * 150))
 plt.figure()
 plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], q8(U_RANS,gradk_RANS,tau_RANS,S_RANS))
 plt.show()
