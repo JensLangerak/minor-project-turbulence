@@ -9,7 +9,7 @@ from __future__ import division
 import numpy as np
 import os
 import math
-
+import matplotlib.pyplot as plt
 
 
 time_end      = 30000 
@@ -460,8 +460,9 @@ def q9(tau_RANS, k_RANS):
             q9[i1,i2] = raw/(np.abs(raw) + np.abs(norm))
     return q9
 
-print(q9(tau_RANS, k_RANS))
 
-
+plt.figure()
+plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], q1(S_RANS, Omega_RANS))
+plt.show()
 
 
