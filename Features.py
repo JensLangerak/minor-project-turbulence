@@ -460,7 +460,13 @@ def q9(tau_RANS, k_RANS):
 
 print(q9(tau_RANS, k_RANS))
 
+plt.figure()
+plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], q4(U_RANS, gradp_RANS))
+plt.show()
 
+plt.figure()
+plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], q6(gradp_RANS, gradU_RANS, p_RANS,U_RANS))
+plt.show()
 
 plt.figure()
 plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], q8(U_RANS,gradk_RANS,tau_RANS,S_RANS))
