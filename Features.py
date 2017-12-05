@@ -316,7 +316,7 @@ p_RANS        = getRANSPlane(p_RANSlist,'2D', nx_RANS, ny_RANS, 'scalar')
 
 #pressure gradient
 gradp_RANSlist    = getRANSVector(dir_RANS, time_end, 'grad(p)')
-gradp_RANS        = getRANSPlane(U_RANSlist,'2D', nx_RANS, ny_RANS, 'vector')
+gradp_RANS        = getRANSPlane(gradp_RANSlist,'2D', nx_RANS, ny_RANS, 'vector')
 
 #Reynolds stress tensor
 tau_RANSlist  = getRANSSymmTensor(dir_RANS, time_end, 'R')
@@ -354,7 +354,7 @@ def q1(S_RANS, Omega_RANS):
 def q2(k_RANS, U_RANS):
     a = np.shape(k_RANS)
     b= np.shape(U_RANS)
-    print "shape urans=", b
+    print( "shape urans=", b)
     q2 = np.zeros((a[1],a[2]))
     for i1 in range(a[1]):
         for i2 in range(a[2]):               
@@ -385,11 +385,10 @@ def q4(U, gradP):
     for i1 in range(a[1]):
         for i2 in range(a[2]):
             raw  = np.einsum('k,k', U[:,i1,i2], gradP[:,i1,i2])
-            norm = np.sqrt(np.einsum('j,j,i,i', gradP[:,i1,i2], gradP[:,i1,i2], U[:, i1, i2],U[:, i1, i2]))
+            norm = np.einsum('j,j,i,i', gradP[:,i1,i2], gradP[:,i1,i2], U[:, i1, i2],U[:, i1, i2])
             
-            q4[i1,i2] = raw / (norm + raw);
+            q4[i1,i2] = raw / (np.fabs(norm) + np.fabs(raw));
     return q4
-
 
 
 print(q4(U_RANS, gradp_RANS))
@@ -464,7 +463,7 @@ print(q9(tau_RANS, k_RANS))
 
 
 plt.figure()
-plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], q1(S_RANS, Omega_RANS))
+plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], q4(U_RANS, gradp_RANS))
 plt.show()
 
 
