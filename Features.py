@@ -407,7 +407,7 @@ def q5(k_RANS, S_RANS, Cmu, omega_RANS):
 
 print(q5(k_RANS, S_RANS, Cmu, omega_RANS))
 
-def q6(gradP, gradU, p_RANS):
+def q6(gradP, gradU, p_RANS, U_RANS):
     a = np.shape(gradP)
     q6 = np.zeros((a[1],a[2]))
     for i1 in range(a[1]):
@@ -415,13 +415,14 @@ def q6(gradP, gradU, p_RANS):
             norm = 0
             raw = 0
             for k in range(a[0]):
-                raw += math.fabs(gradP[k, i1, i2])
-                norm += gradU[k, k, i1, i2] * gradU[k, k, i1, i2];
+                raw += gradP[k, i1, i2]*gradP[k, i1, i2]
+                norm += U_RANS[k, i1, i2] * gradU[k, k, i1, i2]
+            raw=np.sqrt(raw)
             norm *= 0.5 * p_RANS[0, i1, i2]
             q6[i1,i2] = raw / (norm + raw)
     return q6
     
-print(q6(gradp_RANS, gradU_RANS, p_RANS))
+print(q6(gradp_RANS, gradU_RANS, p_RANS,U_RANS))
 
 
 def q7(U_RANS, gradU_RANS):

@@ -502,14 +502,14 @@ nx_RANS       = 140
 ny_RANS       = 150
 
 #Specify home directory from where the data can be found
-home = os.path.realpath('MinorCSE') + '\\'
+home = os.path.realpath('MinorCSE') + '/'
 #home = '../CSE minor/'
 
 dir_RANS  = home + ('Re%i_%s' % (Re,TurbModel))
 
 
 # Load DNS dataset
-dataset = home + ('DATA_CASE_LES_BREUER') + '\\' + ('Re_%i' % Re) + '\\' + ('Hill_Re_%i_Breuer.csv' % Re)
+dataset = home + ('DATA_CASE_LES_BREUER') + '/' + ('Re_%i' % Re) + '/' + ('Hill_Re_%i_Breuer.csv' % Re)
 dataDNS = loadData_avg(dataset)
 
 # Load RANS mesh
