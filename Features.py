@@ -328,7 +328,7 @@ k_RANS        = getRANSPlane(k_RANSlist,'2D', nx_RANS, ny_RANS, 'scalar')
 
 #k gradient
 gradk_RANSlist    = getRANSVector(dir_RANS, time_end, 'grad(k)')
-gradk_RANS        = getRANSPlane(U_RANSlist,'2D', nx_RANS, ny_RANS, 'vector')
+gradk_RANS        = getRANSPlane(gradk_RANSlist,'2D', nx_RANS, ny_RANS, 'vector')
 
 #distance to wall
 yWall_RANSlist = getRANSScalar(dir_RANS, time_end, 'yWall')
@@ -463,7 +463,7 @@ print(q9(tau_RANS, k_RANS))
 
 
 plt.figure()
-plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], q4(U_RANS, gradp_RANS))
+plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], q8(U_RANS,gradk_RANS,tau_RANS,S_RANS))
 plt.show()
 
 
