@@ -448,6 +448,17 @@ def q9(tau_RANS, k_RANS):
     return q9
 
 
+print(q9(tau_RANS, k_RANS))
+
+plt.figure()
+plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], q4(U_RANS, gradp_RANS))
+plt.show()
+
+plt.figure()
+plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], q6(gradp_RANS, gradU_RANS, p_RANS,U_RANS))
+plt.show()
+
+
 def getFeatures():
     a = np.shape(k_RANS)
     feature = np.zeros((9, a[1],a[2]))
@@ -479,9 +490,6 @@ def getFeatures():
 test = getFeatures()
 t2 = getFeatures()
 t2 = np.reshape(t2,(9, 140 * 150))
-plt.figure()
-plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], q8(U_RANS,gradk_RANS,tau_RANS,S_RANS))
-plt.show()
 
 
 
