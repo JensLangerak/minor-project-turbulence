@@ -551,11 +551,25 @@ for i in range(l1):
         dataRANS_k[i,j] = 0.5 * np.trace(tau_RANS[:,:,i,j])
         dataRANS_aij[:,:,i,j] = tau_RANS[:,:,i,j]/(2.*dataRANS_k[i,j]) - np.diag([1/3.,1/3.,1/3.])
         
+def baryMap_discr(baryMap_RANS,baryMap_DNS):
+    a = np.shape(baryMap_RANS)
+    discr = np.zeros((2,a[1],a[2]))
+    for i1 in range(a[1]):
+        for i2 in range(a[2]):    
+            discr[0,i1,i2]=baryMap_RANS[0,i1,i2]-baryMap_DNS[0,i1,i2]
+            discr[1,i1,i2]=baryMap_RANS[1,i1,i2]-baryMap_DNS[1,i1,i2]
+    return discr
+
+
 eigVal_DNS = calcEigenvalues(ReStress_DNS, dataDNS_i['k'])
 baryMap_DNS = barycentricMap(eigVal_DNS)
 
 eigVal_RANS = calcEigenvalues(tau_RANS, dataRANS_k)
 baryMap_RANS = barycentricMap(eigVal_RANS)
+
+baryMap_discr=baryMap_discr(baryMap_RANS, baryMap_DNS)
+
+
 
 #%% write out OpenFOAM data files with DNS interpolated on RANS
 if DO_WRITE:
@@ -703,6 +717,12 @@ if DO_PLOTTING:
     
     plt.figure()
     plt.plot(baryMap_RANS[0,:,:],baryMap_RANS[1,:,:],'b*')
+    plt.plot([0,1,0.5,0],[0,0,np.sin(60*(np.pi/180)),0],'k-')
+    plt.axis('equal')
+    plt.show()
+    
+    plt.figure()
+    plt.plot(baryMap_discr[0,:,:],baryMap_discr[1,:,:],'b*')
     plt.plot([0,1,0.5,0],[0,0,np.sin(60*(np.pi/180)),0],'k-')
     plt.axis('equal')
     plt.show()
