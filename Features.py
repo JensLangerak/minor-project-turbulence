@@ -24,7 +24,7 @@ ny_RANS       = 150
 
 #Specify home directory from where the data can be found
 dir = os.path.dirname(__file__)
-home = os.path.realpath('MinorCSE') + '\\'
+home = os.path.realpath('MinorCSE') + '/'
 #home = '../CSE minor/'
 
 dir_RANS  = home + ('Re%i_%s' % (Re,TurbModel))
@@ -269,8 +269,8 @@ def calcInitialConditions(U, turbulenceIntensity, turbLengthScale, nu, d, D):
     omega_wall = 10 * 6 * nu / (0.0705 * d**2)
     #omega_wall_wilcox = 6 / (0.0708 * yPlus_wilcox**2)
     nuTilda = np.sqrt(1.5)*U*turbulenceIntensity*turbLengthScale
-    nuTilda_NASA = 3*nu
-    nut_NASA = 3*nu*(3**3)/(3**3 + 7.1**3)
+    #nuTilda_NASA = 3*nu
+    #nut_NASA = 3*nu*(3**3)/(3**3 + 7.1**3)
     Re      = U*D/nu
     tmp = {'k': k, 'epsilon': epsilon, 'omega': omega, 'nuTilda': nuTilda, 
            'omega_wall':omega_wall, 'Re':Re}    
