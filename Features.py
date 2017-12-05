@@ -353,13 +353,17 @@ def q1(S_RANS, Omega_RANS):
 
 def q2(k_RANS, U_RANS):
     a = np.shape(k_RANS)
+    b= np.shape(U_RANS)
+    print "shape urans=", b
     q2 = np.zeros((a[1],a[2]))
     for i1 in range(a[1]):
         for i2 in range(a[2]):               
-            raw = k_RANS[:,i1,i2][0]
+            raw = k_RANS[0,i1,i2]
             norm = 0.5*(np.inner(U_RANS[:, i1, i2], U_RANS[:, i1, i2])) # inner is equivalent to sum UiUi
             q2[i1,i2] = raw/(np.abs(raw) + np.abs(norm))
     return q2
+
+
 
 nu=1.4285714285714286e-03
 
@@ -402,7 +406,7 @@ def q5(k_RANS, S_RANS, Cmu, omega_RANS):
             epsilon = Cmu * k_RANS[:, i1, i2] * omega_RANS[:, i1, i2]
             raw = k_RANS[:, i1, i2] / epsilon
             norm = 1 / np.sqrt(np.trace(np.dot(S_RANS[:, :, i1, i2],S_RANS[:, :, i1, i2])))
-            q5[i1,i2] = raw/(np.abs(raw) + np.abs(norm))
+            q5[i1,i2] = raw/(np.fabs(raw) + np.fabs(norm))
     return q5
 
 print(q5(k_RANS, S_RANS, Cmu, omega_RANS))
@@ -419,7 +423,7 @@ def q6(gradP, gradU, p_RANS, U_RANS):
                 norm += U_RANS[k, i1, i2] * gradU[k, k, i1, i2]
             raw=np.sqrt(raw)
             norm *= 0.5 * p_RANS[0, i1, i2]
-            q6[i1,i2] = raw / (norm + raw)
+            q6[i1,i2] = raw/(np.fabs(raw) + np.fabs(norm))
     return q6
     
 print(q6(gradp_RANS, gradU_RANS, p_RANS,U_RANS))
@@ -430,10 +434,11 @@ def q7(U_RANS, gradU_RANS):
     q7 = np.zeros((a[1],a[2]))
     for i1 in range(a[1]):
         for i2 in range(a[2]):    
-            raw = np.einsum('i, j, ij', U_RANS[:, i1, i2], U_RANS[:, i1, i2], gradU_RANS[:, :, i1, i2])
+            raw = np.fabs(np.einsum('i, j, ij', U_RANS[:, i1, i2], U_RANS[:, i1, i2], gradU_RANS[:, :, i1, i2]))
             norm = np.sqrt(np.einsum('l, l, i, ij, k, kj', U_RANS[:, i1, i2], U_RANS[:, i1, i2],U_RANS[:, i1, i2], gradU_RANS[:, :, i1, i2], U_RANS[:, i1, i2], gradU_RANS[:, :, i1, i2]))
-            q7[i1,i2] = raw/(np.abs(raw) + np.abs(norm))
+            q7[i1,i2] = raw/(np.fabs(raw) + np.fabs(norm))
     return q7
+
 
 print(q7(U_RANS, gradU_RANS))
 
@@ -459,7 +464,7 @@ def q9(tau_RANS, k_RANS):
         for i2 in range(a[2]):    
             raw = np.sqrt(np.trace(np.dot(tau_RANS[:, :, i1, i2],np.transpose(tau_RANS[:, :, i1, i2]))))
             norm = k_RANS[:, i1, i2]
-            q9[i1,i2] = raw/(np.abs(raw) + np.abs(norm))
+            q9[i1,i2] = raw/(np.fabs(raw) + np.fabs(norm))
     return q9
 
 print(q9(tau_RANS, k_RANS))
@@ -474,7 +479,7 @@ def q8(U, gradK, Tau, S):
         for i2 in range(a[2]):
             raw  = np.einsum('i,i',U[:,i1,i2], gradK[:,i1,i2])
             norm = np.einsum('jk,jk', Tau[:,:, i1, i2], S[:,:, i1, i2])
-            q8[i1,i2] = raw/(np.abs(raw) + np.abs(norm))              
+            q8[i1,i2] = raw/(np.fabs(raw) + np.fabs(norm))              
     return q8
 
 print (q8(U_RANS,gradk_RANS,tau_RANS,S_RANS))    
