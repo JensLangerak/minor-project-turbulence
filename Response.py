@@ -727,5 +727,11 @@ if DO_PLOTTING:
     plt.axis('equal')
     plt.show()
     
+    plt.figure()
+    plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], baryMap_discr(baryMap_RANS,baryMap_DNS)[0])
+    plt.show()
+    
+    
+    
 
             
