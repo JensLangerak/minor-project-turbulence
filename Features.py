@@ -24,7 +24,7 @@ ny_RANS       = 150
 
 #Specify home directory from where the data can be found
 dir = os.path.dirname(__file__)
-home = os.path.realpath('MinorCSE') + '\\'
+home = os.path.realpath('MinorCSE') + '/'
 #home = '../CSE minor/'
 
 dir_RANS  = home + ('Re%i_%s' % (Re,TurbModel))
@@ -269,8 +269,8 @@ def calcInitialConditions(U, turbulenceIntensity, turbLengthScale, nu, d, D):
     omega_wall = 10 * 6 * nu / (0.0705 * d**2)
     #omega_wall_wilcox = 6 / (0.0708 * yPlus_wilcox**2)
     nuTilda = np.sqrt(1.5)*U*turbulenceIntensity*turbLengthScale
-    nuTilda_NASA = 3*nu
-    nut_NASA = 3*nu*(3**3)/(3**3 + 7.1**3)
+    #nuTilda_NASA = 3*nu
+    #nut_NASA = 3*nu*(3**3)/(3**3 + 7.1**3)
     Re      = U*D/nu
     tmp = {'k': k, 'epsilon': epsilon, 'omega': omega, 'nuTilda': nuTilda, 
            'omega_wall':omega_wall, 'Re':Re}    
@@ -380,12 +380,9 @@ def q4(U, gradP):
     q4 = np.zeros((a[1],a[2]))
     for i1 in range(a[1]):
         for i2 in range(a[2]):
-            raw = 0
-            norm = 0
-            for k in range(a[0]):
-                raw += U[k,i1,i2] * gradP[k,i1,i2]
-                for i in range(a[0]):
-                    norm += math.fabs( gradP[k,i1,i2] * U[i, i1, i2])
+            raw  = np.einsum('k,k', U[:,i1,i2], gradP[:,i1,i2])
+            norm = np.sqrt(np.einsum('j,j,i,i', gradP[:,i1,i2], gradP[:,i1,i2], U[:, i1, i2],U[:, i1, i2]))
+            
             q4[i1,i2] = raw / (norm + raw);
     return q4
 
@@ -407,21 +404,19 @@ def q5(k_RANS, S_RANS, Cmu, omega_RANS):
 
 print(q5(k_RANS, S_RANS, Cmu, omega_RANS))
 
-def q6(gradP, gradU, p_RANS):
+def q6(gradP, gradU, p_RANS, U_RANS):
     a = np.shape(gradP)
     q6 = np.zeros((a[1],a[2]))
     for i1 in range(a[1]):
         for i2 in range(a[2]):
-            norm = 0
-            raw = 0
-            for k in range(a[0]):
-                raw += math.fabs(gradP[k, i1, i2])
-                norm += gradU[k, k, i1, i2] * gradU[k, k, i1, i2];
+            raw  = np.sqrt(np.einsum('i,i', gradP[:, i1, i2], gradP[:, i1, i2]))
+            norm = np.einsum('k,kk', U_RANS[:, i1, i2], gradU[:, :, i1, i2])
+           
             norm *= 0.5 * p_RANS[0, i1, i2]
             q6[i1,i2] = raw / (norm + raw)
     return q6
     
-print(q6(gradp_RANS, gradU_RANS, p_RANS))
+print(q6(gradp_RANS, gradU_RANS, p_RANS,U_RANS))
 
 
 def q7(U_RANS, gradU_RANS):
@@ -449,7 +444,6 @@ def q8(U, gradK, Tau, S):
 
 print (q8(U_RANS,gradk_RANS,tau_RANS,S_RANS))    
 
-
 def q9(tau_RANS, k_RANS):
     a = np.shape(k_RANS)
     q9 = np.zeros((a[1],a[2]))
@@ -459,6 +453,9 @@ def q9(tau_RANS, k_RANS):
             norm = k_RANS[:, i1, i2]
             q9[i1,i2] = raw/(np.abs(raw) + np.abs(norm))
     return q9
+
+print(q9(tau_RANS, k_RANS))
+
 
 
 plt.figure()
