@@ -28,7 +28,7 @@ def cgp(features, solutionList): #function that interpretes solution in terms of
     output2 = calculateInput(newlist, nr_nodes + len(features)- 2, inputs)
     print 'end'
 
-    return output1,output2 
+    return [output1,output2]
 
 def calculateInput(newlist, input_id, inputs):
     
@@ -57,6 +57,7 @@ def calculateInput(newlist, input_id, inputs):
         output1=a/b
     inputs[input_id]=output1
     return output1
+
 
 #main program
 
