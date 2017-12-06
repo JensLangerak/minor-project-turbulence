@@ -470,7 +470,6 @@ X = np.reshape(f, (nx*ny, 9))
 
 y = np.reshape(foam.baryMap_dist(baryMap_RANS, baryMap_DNS), (nx*ny, 1))
 
-X, y = make_regression(n_features=9, n_informative=2, random_state=0, shuffle=False)
 
 regr = RandomForestRegressor(bootstrap=True, criterion='mse', max_depth=5,
            max_features='auto', max_leaf_nodes=None,
@@ -483,9 +482,9 @@ regr.fit(X, y)
 
 print("Feature importance :", regr.feature_importances_)   
 
-print("Feature at x=33, y=12:",f[33, 12, :])
+print("Feature at x=33, y=12:",f[45, 12, :])
 
-print("Prediction for distance:", regr.predict([f[33, 12, :]]))
+print("Prediction for distance:", regr.predict([f[45, 12, :]]))
 
-print("Real distance", foam.baryMap_dist(baryMap_RANS, baryMap_DNS)[33][12])
+print("Real distance", foam.baryMap_dist(baryMap_RANS, baryMap_DNS)[45][12])
 
