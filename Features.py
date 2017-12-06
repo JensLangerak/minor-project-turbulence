@@ -17,6 +17,7 @@ import os
 
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.datasets import make_regression
+from sklearn.tree import export_graphviz
 
 
 #%%============================================================================
@@ -231,12 +232,12 @@ def getFeatures2(Re, TurbModel = 'kOmega', time_end = 30000, nx_RANS = 140, ny_R
     home = os.path.realpath('MinorCSE') + '/' #Specify home directory from where the data can be found
     dir_RANS  = home + ('Re%i_%s' % (Re,TurbModel))
     a = np.shape(k_RANS)
-    feature = np.zeros((9, a[1],a[2]))
+    feature = np.zeros((a[1],a[2], 9))
     feature[:,:,0] = q1(S_RANS, Omega_RANS)
     feature[:,:,1] = q2(k_RANS, U_RANS)
-    feature[:,:,2] = q3(k_RANS, yWall_RANS, nu)
+    feature[:,:,2] = q3(k_RANS, yWall_RANS)
     feature[:,:,3] = q4(U_RANS, gradp_RANS)
-    feature[:,:,4] = q5(k_RANS, S_RANS, Cmu, omega_RANS)
+    feature[:,:,4] = q5(k_RANS, S_RANS, omega_RANS)
     feature[:,:,5] = q6(gradp_RANS, gradU_RANS, p_RANS,U_RANS)
     feature[:,:,6] = q7(U_RANS, gradU_RANS)
     feature[:,:,7] = q8(U_RANS, gradk_RANS, tau_RANS, S_RANS)
@@ -454,16 +455,37 @@ if DO_PLOTTING:
     plt.title("Feature 6")
     plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], q6(gradp_RANS, gradU_RANS, p_RANS,U_RANS))
     plt.show()
-
-
-X = np.reshape(getFeatures2(700), (nx*ny, 9))
-y = np.reshape(foam.baryMap_discr(baryMap_RANS, baryMap_DNS), (nx*ny, 2))
 '''
-X, y = make_regression(n_features=4, n_informative=2, random_state=0, shuffle=False)
+aaa = getFeatures2()
+print(np.shape(aaa))
+print(aaa)
+bbb = foam.baryMap_discr(baryMap_RANS, baryMap_DNS)
+print(np.shape(bbb))
+print(bbb)
+'''
+nx = 140
+ny = 150
+f = getFeatures2(700)
+X = np.reshape(f, (nx*ny, 9))
 
-regr = RandomForestRegressor()
+y = np.reshape(foam.baryMap_dist(baryMap_RANS, baryMap_DNS), (nx*ny, 1))
+
+X, y = make_regression(n_features=9, n_informative=2, random_state=0, shuffle=False)
+
+regr = RandomForestRegressor(bootstrap=True, criterion='mse', max_depth=5,
+           max_features='auto', max_leaf_nodes=None,
+           min_impurity_decrease=0.0, min_impurity_split=None,
+           min_samples_leaf=1, min_samples_split=2,
+           min_weight_fraction_leaf=0.0, n_estimators=10, n_jobs=1,
+           oob_score=False, random_state=0, verbose=0, warm_start=False)
 
 regr.fit(X, y)
-'''
-            
+
+print("Feature importance :", regr.feature_importances_)   
+
+print("Feature at x=33, y=12:",f[33, 12, :])
+
+print("Prediction for distance:", regr.predict([f[33, 12, :]]))
+
+print("Real distance", foam.baryMap_dist(baryMap_RANS, baryMap_DNS)[33][12])
 
