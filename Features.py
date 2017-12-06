@@ -15,6 +15,10 @@ from shutil import copy
 from os import remove, close
 import os
 
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.datasets import make_regression
+
+
 #%%============================================================================
 # M A I N   P R O G R A M
 #==============================================================================
@@ -22,7 +26,7 @@ import os
 
 DO_INTERP   = 1
 DO_WRITE    = 0
-DO_PLOTTING = 1
+DO_PLOTTING = 0
 
 
 # file directories
@@ -201,7 +205,7 @@ def q9(tau_RANS, k_RANS):
             q9[i1,i2] = raw/(np.fabs(raw) + np.fabs(norm))
     return q9
 
-
+'''
 def getFeatures(Re, TurbModel = 'kOmega', time_end = 30000, nx_RANS = 140, ny_RANS = 150):
     dir = os.path.dirname(__file__)
     home = os.path.realpath('MinorCSE') + '/' #Specify home directory from where the data can be found
@@ -220,21 +224,24 @@ def getFeatures(Re, TurbModel = 'kOmega', time_end = 30000, nx_RANS = 140, ny_RA
     feature[8,:,:] = q9(tau_RANS, k_RANS)
     
     return feature
-    
-
-#def getFeatures2(): #this shape is needed for scikit but the other function follows the indices convention in the code.
-#    a = np.shape(k_RANS)
-#    feature = np.zeros((9, a[1],a[2]))
-#    feature[:,:,0] = q1(S_RANS, Omega_RANS)
-#    feature[:,:,1] = q2(k_RANS, U_RANS)
-#    feature[:,:,2] = q3(k_RANS, yWall_RANS, nu)
-#    feature[:,:,3] = q4(U_RANS, gradp_RANS)
-#    feature[:,:,4] = q5(k_RANS, S_RANS, Cmu, omega_RANS)
-#    feature[:,:,5] = q6(gradp_RANS, gradU_RANS, p_RANS,U_RANS)
-#    feature[:,:,6] = q7(U_RANS, gradU_RANS)
-#    feature[:,:,7] = q8(U_RANS, gradk_RANS, tau_RANS, S_RANS)
-#    feature[:,:,8] = q9(tau_RANS, k_RANS)
-#    return feature
+  '''  
+#this shape is needed for scikit but the other function follows the indices convention in the code.
+def getFeatures2(Re, TurbModel = 'kOmega', time_end = 30000, nx_RANS = 140, ny_RANS = 150):
+    dir = os.path.dirname(__file__)
+    home = os.path.realpath('MinorCSE') + '/' #Specify home directory from where the data can be found
+    dir_RANS  = home + ('Re%i_%s' % (Re,TurbModel))
+    a = np.shape(k_RANS)
+    feature = np.zeros((9, a[1],a[2]))
+    feature[:,:,0] = q1(S_RANS, Omega_RANS)
+    feature[:,:,1] = q2(k_RANS, U_RANS)
+    feature[:,:,2] = q3(k_RANS, yWall_RANS, nu)
+    feature[:,:,3] = q4(U_RANS, gradp_RANS)
+    feature[:,:,4] = q5(k_RANS, S_RANS, Cmu, omega_RANS)
+    feature[:,:,5] = q6(gradp_RANS, gradU_RANS, p_RANS,U_RANS)
+    feature[:,:,6] = q7(U_RANS, gradU_RANS)
+    feature[:,:,7] = q8(U_RANS, gradk_RANS, tau_RANS, S_RANS)
+    feature[:,:,8] = q9(tau_RANS, k_RANS)
+    return feature
  
 
 
@@ -444,14 +451,19 @@ if DO_PLOTTING:
     plt.show()
     
     plt.figure()
-    plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], q4(U_RANS, gradp_RANS))
-    plt.show()
-    
-    plt.figure()
+    plt.title("Feature 6")
     plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], q6(gradp_RANS, gradU_RANS, p_RANS,U_RANS))
     plt.show()
 
 
-            
+X = np.reshape(getFeatures2(700), (nx*ny, 9))
+y = np.reshape(foam.baryMap_discr(baryMap_RANS, baryMap_DNS), (nx*ny, 2))
+'''
+X, y = make_regression(n_features=4, n_informative=2, random_state=0, shuffle=False)
 
+regr = RandomForestRegressor()
+
+regr.fit(X, y)
+'''
+            
 
