@@ -1,9 +1,58 @@
 from __future__ import division
 import numpy as np
+import matplotlib.pyplot as plt
+import scipy.interpolate as interp
 import os
 import openFOAM as foam
-    
+import sys
+sys.path.append("..")
+
+import csv as csv
+
+from tempfile import mkstemp
+from shutil import move
+from shutil import copy
+from os import remove, close
+import os
+
+#%%============================================================================
+# M A I N   P R O G R A M
+#==============================================================================
+
+
+DO_INTERP   = 1
+DO_WRITE    = 0
+DO_PLOTTING = 1
+
+
+# file directories
+time_end      = 30000 
+
+#Specify the reynoulds number and turbulence model used (directory)
+Re            = 700 #
+TurbModel     = 'kOmega'
+
+
+nx_RANS       = 140
+ny_RANS       = 150
+
+#Specify home directory from where the data can be found
+home = os.path.realpath('MinorCSE') + '/'
+#home = '../CSE minor/'
+
+dir_RANS  = home + ('Re%i_%s' % (Re,TurbModel))
+
+
+# Load DNS dataset
+####################################################################################################
+
+dataset = home + ('DATA_CASE_LES_BREUER') + '/' + ('Re_%i' % Re) + '/' + ('Hill_Re_%i_Breuer.csv' % Re)
+dataDNS = foam.loadData_avg(dataset)
+
+
+
 # Load RANS mesh
+###################################################################################################
 #case_dir      = dir_RANS + case_RANS
 meshRANSlist  = foam.getRANSVector(dir_RANS, time_end, 'cellCentres')
 meshRANS      = foam.getRANSPlane(meshRANSlist,'2D', nx_RANS, ny_RANS, 'vector')
@@ -47,6 +96,9 @@ omega_RANS      = foam.getRANSPlane(omega_RANSlist, '2D', nx_RANS, ny_RANS, 'sca
 #S R tensor
 S_RANS, Omega_RANS  = foam.getSRTensors(gradU_RANS)
 
+
+#features
+######################################################################################################
 def q1(S_RANS, Omega_RANS): 
     a = np.shape(S_RANS)
     q1 = np.zeros((a[2],a[3]))
@@ -69,11 +121,8 @@ def q2(k_RANS, U_RANS):
             q2[i1,i2] = raw/(np.abs(raw) + np.abs(norm))
     return q2
 
-
-
-nu=1.4285714285714286e-03
-
-def q3(k_RANS, yWall_RANS, nu):
+    
+def q3(k_RANS, yWall_RANS, nu=1.4285714285714286e-03):
     a = np.shape(k_RANS)
     q3 = np.zeros((a[1],a[2]))
     for i1 in range(a[1]):
@@ -94,8 +143,7 @@ def q4(U, gradP):
     return q4
 
 
-Cmu=0.09
-def q5(k_RANS, S_RANS, Cmu, omega_RANS):
+def q5(k_RANS, S_RANS, omega_RANS, Cmu=0.09):
     a = np.shape(k_RANS)
     q5 = np.zeros((a[1],a[2]))
     for i1 in range(a[1]):
@@ -154,18 +202,6 @@ def q9(tau_RANS, k_RANS):
     return q9
 
 
-#print(q9(tau_RANS, k_RANS))
-
-'''
-plt.figure()
-plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], q4(U_RANS, gradp_RANS))
-plt.show()
-
-plt.figure()
-plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], q6(gradp_RANS, gradU_RANS, p_RANS,U_RANS))
-plt.show()
-'''
-
 def getFeatures(Re, TurbModel = 'kOmega', time_end = 30000, nx_RANS = 140, ny_RANS = 150):
     dir = os.path.dirname(__file__)
     home = os.path.realpath('MinorCSE') + '/' #Specify home directory from where the data can be found
@@ -175,9 +211,9 @@ def getFeatures(Re, TurbModel = 'kOmega', time_end = 30000, nx_RANS = 140, ny_RA
     feature = np.zeros((9, a[1],a[2]))
     feature[0,:,:] = q1(S_RANS, Omega_RANS)
     feature[1,:,:] = q2(k_RANS, U_RANS)
-    feature[2,:,:] = q3(k_RANS, yWall_RANS, nu)
+    feature[2,:,:] = q3(k_RANS, yWall_RANS)
     feature[3,:,:] = q4(U_RANS, gradp_RANS)
-    feature[4,:,:] = q5(k_RANS, S_RANS, Cmu, omega_RANS)
+    feature[4,:,:] = q5(k_RANS, S_RANS, omega_RANS)
     feature[5,:,:] = q6(gradp_RANS, gradU_RANS, p_RANS,U_RANS)
     feature[6,:,:] = q7(U_RANS, gradU_RANS)
     feature[7,:,:] = q8(U_RANS, gradk_RANS, tau_RANS, S_RANS)
@@ -199,10 +235,223 @@ def getFeatures(Re, TurbModel = 'kOmega', time_end = 30000, nx_RANS = 140, ny_RA
 #    feature[:,:,7] = q8(U_RANS, gradk_RANS, tau_RANS, S_RANS)
 #    feature[:,:,8] = q9(tau_RANS, k_RANS)
 #    return feature
-    
-test = getFeatures(1400)
-t2 = getFeatures(1400)
-t2 = np.reshape(t2,(9, 140 * 150))
+ 
 
+
+# interpolate DNS on RANS grid
+if DO_INTERP:
+    dataDNS_i = foam.interpDNSOnRANS(dataDNS, meshRANS)
+
+dataDNS_i['k'] = 0.5 * (dataDNS_i['uu'] + dataDNS_i['vv'] + dataDNS_i['ww'])
+
+l1 = np.shape(U_RANS)[1]
+l2 = np.shape(U_RANS)[2]
+
+
+ReStress_DNS = np.zeros([3,3,l1,l2])
+
+ReStress_DNS[0,0,:,:] = dataDNS_i['uu']
+ReStress_DNS[1,1,:,:] = dataDNS_i['vv']
+ReStress_DNS[2,2,:,:] = dataDNS_i['ww']
+ReStress_DNS[0,1,:,:] = dataDNS_i['uv']
+ReStress_DNS[1,0,:,:] = dataDNS_i['uv']
+
+aij_DNS = np.zeros([3,3,l1,l2])
+dataRANS_k = np.zeros([l1,l2])
+dataRANS_aij = np.zeros([3,3,l1,l2])
+
+for i in range(l1):
+    for j in range(l2):
+        aij_DNS[:,:,i,j] = ReStress_DNS[:,:,i,j]/(2.*dataDNS_i['k'][i,j]) - np.diag([1/3.,1/3.,1/3.])
+        dataRANS_k[i,j] = 0.5 * np.trace(tau_RANS[:,:,i,j])
+        dataRANS_aij[:,:,i,j] = tau_RANS[:,:,i,j]/(2.*dataRANS_k[i,j]) - np.diag([1/3.,1/3.,1/3.])
+        
+
+
+
+eigVal_DNS = foam.calcEigenvalues(ReStress_DNS, dataDNS_i['k'])
+baryMap_DNS = foam.barycentricMap(eigVal_DNS)
+
+eigVal_RANS = foam.calcEigenvalues(tau_RANS, dataRANS_k)
+baryMap_RANS = foam.barycentricMap(eigVal_RANS)
+
+baryMap_discr= foam.baryMap_discr(baryMap_RANS, baryMap_DNS)
+
+
+
+#%% write out OpenFOAM data files with DNS interpolated on RANS
+if DO_WRITE:
+# pressure p
+
+    case = dir_RANS + 'case_simpleFoam'
+    time = 0
+    var = 'pd'
+    data = np.swapaxes(dataDNS_i['pm'],0,1).reshape(nx_RANS*ny_RANS)
+    
+    copy(case + '/' + str(time) + '/' + var, case + '/' + str(time) + '/' + var + '_old')
+    tmp = []
+    tmp2 = 10**12
+    maxIter = -1
+    cc = False
+    j = 0
+    file_path=case + '/' + str(time) + '/' + var
+    print (file_path)
+    fh, abs_path = mkstemp()
+    with open(abs_path,'w') as new_file:
+        with open(file_path) as file:
+            for i,line in enumerate(file):  
+                if 'object' in line:
+                    new_file.write('    object      p;\n')
+                elif cc==False and 'internalField' not in line:
+                    new_file.write(line)
+                
+                elif 'internalField' in line:
+                    tmp = i + 1
+                    tmp2 = i + 3
+                    cc = True
+                    new_file.write(line)
+                    print (tmp, tmp2)
+                    
+        
+                elif i==tmp:
+                    print (line.split())
+                    maxLines = int(line.split()[0])
+                    maxIter  = tmp2 + maxLines
+                    new_file.write(line)
+                    print (maxLines, maxIter)
+                
+                elif i>tmp and i<tmp2:              
+                    new_file.write(line)
+                
+                elif i>=tmp2 and i<maxIter:
+                    new_file.write( str(data[j]) + ' \n'  )            
+                    j += 1
+                
+                elif i>=maxIter:
+                    new_file.write(line)
+                    
+    close(fh)
+    remove(file_path)
+    move(abs_path, file_path)
+
+
+# velocity
+    time = 0
+    var = 'Ud'
+
+    data_x = np.swapaxes(dataDNS_i['um'],0,1).reshape(nx_RANS*ny_RANS)
+    data_y = np.swapaxes(dataDNS_i['vm'],0,1).reshape(nx_RANS*ny_RANS)
+    data_z = np.swapaxes(dataDNS_i['wm'],0,1).reshape(nx_RANS*ny_RANS)
+    
+
+    copy(case + '/' + str(time) + '/' + var, case + '/' + str(time) + '/' + var + '_old')
+    tmp = []
+    tmp2 = 10**12
+    maxIter = -1
+    cc = False
+    j = 0
+    file_path=case + '/' + str(time) + '/' + var
+    print (file_path)
+    fh, abs_path = mkstemp()
+    with open(abs_path,'w') as new_file:
+        with open(file_path) as file:
+            for i,line in enumerate(file):  
+                if 'object' in line:
+                    new_file.write('    object      U;\n')
+                elif cc==False and 'internalField' not in line:
+                    new_file.write(line)
+                
+                elif 'internalField' in line:
+                    tmp = i + 1
+                    tmp2 = i + 3
+                    cc = True
+                    new_file.write(line)
+                    print(tmp, tmp2)
+                    
+        
+                elif i==tmp:
+                    print (line.split())
+                    maxLines = int(line.split()[0])
+                    maxIter  = tmp2 + maxLines
+                    new_file.write(line)
+                    print (maxLines, maxIter)
+                
+                elif i>tmp and i<tmp2:              
+                    new_file.write(line)
+                
+                elif i>=tmp2 and i<maxIter:
+                    #print line
+                    new_file.write('(' + str(data_x[j]) + ' ' +  str(data_y[j]) + ' ' + str(data_z[j]) + ') \n'  )
+                    j += 1
+                
+                elif i>=maxIter:
+                    new_file.write(line)
+                    
+    close(fh)
+    remove(file_path)
+    move(abs_path, file_path)
+
+
+#%% PLOTTING
+if DO_PLOTTING:
+    
+    plt.close('all')
+    
+    plt.figure()
+    plt.title("Velocity from DNS")
+    plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], dataDNS_i['um'],20)
+    plt.show()
+    
+    plt.figure()
+    plt.title("Velocity from RANS")
+    plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], U_RANS[0,:,:],20)
+    plt.show()
+    
+    plt.figure()
+    plt.title("k from DNS")
+    plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], dataDNS_i['k'],20)
+    plt.show()
+    
+    plt.figure()
+    plt.title("k from RANS")
+    plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], dataRANS_k,20)
+    plt.show()
+    
+    plt.figure()
+    plt.title("DNS")
+    plt.plot(baryMap_DNS[0,:,:],baryMap_DNS[1,:,:],'b*')
+    plt.plot([0,1,0.5,0],[0,0,np.sin(60*(np.pi/180)),0],'k-')
+    plt.axis('equal')
+    plt.show()
+    
+    plt.figure()
+    plt.title("RANS")
+    plt.plot(baryMap_RANS[0,:,:],baryMap_RANS[1,:,:],'b*')
+    plt.plot([0,1,0.5,0],[0,0,np.sin(60*(np.pi/180)),0],'k-')
+    plt.axis('equal')
+    plt.show()
+   
+    plt.figure()
+    plt.title("Discripancy")
+    plt.plot(baryMap_discr[0,:,:],baryMap_discr[1,:,:],'b*')
+    plt.plot([0,1,0.5,0],[0,0,np.sin(60*(np.pi/180)),0],'k-')
+    plt.axis('equal')
+    plt.show()
+    
+    plt.figure()
+    plt.title("dist")
+    plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], foam.baryMap_dist(baryMap_RANS,baryMap_DNS))
+    plt.show()
+    
+    plt.figure()
+    plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], q4(U_RANS, gradp_RANS))
+    plt.show()
+    
+    plt.figure()
+    plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], q6(gradp_RANS, gradU_RANS, p_RANS,U_RANS))
+    plt.show()
+
+
+            
 
 
