@@ -27,7 +27,7 @@ from sklearn.tree import export_graphviz
 
 DO_INTERP   = 1
 DO_WRITE    = 0
-DO_PLOTTING = 0
+DO_PLOTTING = 1
 
 
 # file directories
@@ -487,4 +487,36 @@ print("Feature at x=33, y=12:",f[45, 12, :])
 print("Prediction for distance:", regr.predict([f[45, 12, :]]))
 
 print("Real distance", foam.baryMap_dist(baryMap_RANS, baryMap_DNS)[45][12])
+
+
+nx = 2
+ny = 3
+a = np.zeros((4, nx, ny))
+q1 = np.array([[1, 1, 1],[2, 2, 2]])
+
+q2 = np.array([[3, 3, 3],[4, 4, 4]])
+q3 = np.array([[5, 5 , 5],[6, 6, 6]])
+q4 = np.array([[7, 7, 7],[8, 8, 8]])
+a[0,:, :] = q1
+a[1, :, :] = q2
+a[2,:, :] = q3
+a[3, :, :] = q4
+
+#q = np.reshape(a.swapaxes(1,2), (6, 4), "F")
+#print(q)
+#b= np.reshape(q.swapaxes(1,0), (6, 4))
+#print(b)
+
+b = a*2
+print(b)
+c = np.zeros((2, 4, nx, ny))
+c[0, :, :, :] = a
+c[1, :, :, :] = b
+print(c)
+c = np.reshape(np.reshape(c.swapaxes(1, 2), (12, 4), "F").swapaxes(1,0), (12,4))
+print(c)
+
+
+
+
 
