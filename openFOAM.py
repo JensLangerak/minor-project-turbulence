@@ -348,8 +348,8 @@ def baryMap_discr(baryMap_RANS,baryMap_DNS):
     discr = np.zeros((2,a[1],a[2]))
     for i1 in range(a[1]):
         for i2 in range(a[2]):    
-            discr[0,i1,i2]=baryMap_RANS[0,i1,i2]-baryMap_DNS[0,i1,i2]
-            discr[1,i1,i2]=baryMap_RANS[1,i1,i2]-baryMap_DNS[1,i1,i2]
+            discr[0,i1,i2]=baryMap_DNS[0,i1,i2]-baryMap_RANS[0,i1,i2]
+            discr[1,i1,i2]=baryMap_DNS[1,i1,i2]-baryMap_RANS[1,i1,i2]
     return discr
     
 def baryMap_dist(baryMap_RANS,baryMap_DNS):
