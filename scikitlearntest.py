@@ -18,10 +18,10 @@ print(X)
 y = [[i] for i in range(100)]
 print(y)
 
-X, y = make_regression(n_features=1, n_informative=2,random_state=0, shuffle=False)
+#X, y = make_regression(n_features=1, n_informative=2,random_state=0, shuffle=False)
 
-print(X)
-print(y)
+#print(X)
+#print(y)
 
 regr = RandomForestRegressor(max_depth=2, random_state=0,n_estimators=50, min_samples_split=100, max_leaf_nodes=100)
 
