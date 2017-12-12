@@ -1,17 +1,11 @@
-import numpy as np
-import matplotlib.pyplot as plt
-import openFOAM as foam
 import os
+import openFOAM as foam
 import sys
 sys.path.append("..")
+import numpy as np
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.datasets import make_regression
-from sklearn.tree import export_graphviz
-    
+import matplotlib.pyplot as plt
 
-##################################################################################################################
-######################################### Loading the RANS data ##################################################
-##################################################################################################################
 def RANS(Re, TurbModel, time_end, nx_RANS, ny_RANS):
     home = os.path.realpath('MinorCSE') + '/'
     dir_RANS  = home + ('Re%i_%s' % (Re,TurbModel))
@@ -50,9 +44,6 @@ def RANS(Re, TurbModel, time_end, nx_RANS, ny_RANS):
     
     return meshRANS, U_RANS, gradU_RANS, p_RANS, gradp_RANS, tau_RANS, k_RANS, gradk_RANS, yWall_RANS, omega_RANS, S_RANS, Omega_RANS
     
-##################################################################################################################
-######################################### Features  ##############################################################
-##################################################################################################################
 def q1(S_RANS, Omega_RANS): 
     a = np.shape(S_RANS)
     q1 = np.zeros((a[2],a[3]))
@@ -65,8 +56,6 @@ def q1(S_RANS, Omega_RANS):
 
 def q2(k_RANS, U_RANS):
     a = np.shape(k_RANS)
-    b= np.shape(U_RANS)
-    #print( "shape urans=", b)
     q2 = np.zeros((a[1],a[2]))
     for i1 in range(a[1]):
         for i2 in range(a[2]):               
@@ -153,12 +142,8 @@ def q9(tau_RANS, k_RANS):
             raw = np.sqrt(np.trace(np.dot(tau_RANS[:, :, i1, i2],np.transpose(tau_RANS[:, :, i1, i2]))))
             norm = k_RANS[:, i1, i2]
             q9[i1,i2] = raw/(np.fabs(raw) + np.fabs(norm))
-    return q9   
+    return q9
 
-##################################################################################################################
-######################################### Feature function #######################################################
-##################################################################################################################
-    
 def features(Re, TurbModel='kOmega', time_end=30000, nx_RANS=140, ny_RANS=150):
     X = np.zeros((nx_RANS*len(Re) * ny_RANS, 9))
     
@@ -178,10 +163,6 @@ def features(Re, TurbModel='kOmega', time_end=30000, nx_RANS=140, ny_RANS=150):
         feature = np.reshape(feature.swapaxes(1,0), (nx_RANS*ny_RANS, 9))
         X[i*nx_RANS*ny_RANS:(i+1)*nx_RANS*ny_RANS, :] = feature
     return X
-
-##################################################################################################################
-##################################### Eigenvalue discripancy function ############################################
-##################################################################################################################
 
 def response(Re, nx_RANS=140, ny_RANS=150): 
     Y = np.zeros((nx_RANS*len(Re)*ny_RANS, 2))
@@ -228,143 +209,58 @@ def response(Re, nx_RANS=140, ny_RANS=150):
 
         Y[i*nx_RANS*ny_RANS:(i+1)*nx_RANS*ny_RANS, :] = baryMap_discr
     return Y
-    
 
-##################################################################################################################
-######################################### Random forest ##########################################################
-##################################################################################################################
 
-Re = [700, 1400, 5600, 10595]
+Re = [700, 1400, 2800, 5600]
 X = features(Re)
 print(np.shape(X))
 Y = response(Re)
 print(np.shape(Y))
         
-#regr = RandomForestRegressor(bootstrap=True, criterion='mse', max_depth=5,
-#           max_features='auto', max_leaf_nodes=None,
-#           min_impurity_decrease=0.0, min_impurity_split=None,
-#           min_samples_leaf=1, min_samples_split=2,
-#           min_weight_fraction_leaf=0.0, n_estimators=10, n_jobs=1,
-#           oob_score=False, random_state=0, verbose=0, warm_start=False)
 
-regr = RandomForestRegressor(n_estimators=10, criterion='mse', max_depth=None, min_samples_split=2, min_samples_leaf=1, 
-min_weight_fraction_leaf=0.0, max_features='auto', max_leaf_nodes=None, min_impurity_decrease=0.0, 
-min_impurity_split=None, bootstrap=True, oob_score=False, n_jobs=1, random_state=None, 
-verbose=0, warm_start=False)
+def plotRF(Nest, Nfeatures, X, Y, Re_test):
+    score = np.zeros((len(Nest),len(Nfeatures)))
+    a = np.shape(score)
+    for i in range(a[0]):
+        for j in range(a[1]):
+            regr = RandomForestRegressor(n_estimators=Nest[i], criterion='mse', max_depth=None, min_samples_split=2, min_samples_leaf=1, 
+                    min_weight_fraction_leaf=0.0, max_features=Nfeatures[j], max_leaf_nodes=None, min_impurity_decrease=0.0, 
+                    min_impurity_split=None, bootstrap=True, oob_score=False, n_jobs=1, random_state=None, 
+                    verbose=0, warm_start=False)
+            
+            regr.fit(X, Y)
+            test_X = features(Re_test)
+            test_discr = regr.predict(test_X)
+            test_discr = np.reshape(test_discr.swapaxes(1,0), (2, 140, 150))
+            Y_test = response(Re_test, nx_RANS=140, ny_RANS=150) 
+            score[i, j] = regr.score(test_X, Y_test)
+    return score
+            
+Nest = [3, 6, 9, 12]
+Nfeatures = [3, 5, 7, 9]
 
-regr.fit(X, Y)
-print("Feature importance :", regr.feature_importances_) 
-
-Re = [2800]
-test_X = features(Re)
-test_discr = regr.predict(test_X)
-test_discr = np.reshape(test_discr.swapaxes(1,0), (2, 140, 150))
-
-time_end      = 30000 
-Re            = 2800
-TurbModel     = 'kOmega'
-nx_RANS       = 140
-ny_RANS       = 150
-home = os.path.realpath('MinorCSE') + '/'
-dir_RANS  = home + ('Re%i_%s' % (Re,TurbModel))
-
-
-# Load DNS dataset
-####################################################################################################
-dataset = home + ('DATA_CASE_LES_BREUER') + '/' + ('Re_%i' % Re) + '/' + ('Hill_Re_%i_Breuer.csv' % Re)
-dataDNS = foam.loadData_avg(dataset)
-
-
-# Load RANS mesh
-###################################################################################################
-meshRANSlist  = foam.getRANSVector(dir_RANS, time_end, 'cellCentres')
-meshRANS      = foam.getRANSPlane(meshRANSlist,'2D', nx_RANS, ny_RANS, 'vector')
-
-#velocity
-U_RANSlist    = foam.getRANSVector(dir_RANS, time_end, 'U')
-U_RANS        = foam.getRANSPlane(U_RANSlist,'2D', nx_RANS, ny_RANS, 'vector')
-
-#Reynolds stress tensor
-tau_RANSlist  = foam.getRANSSymmTensor(dir_RANS, time_end, 'R')
-tau_RANS      = foam.getRANSPlane(tau_RANSlist,'2D', nx_RANS, ny_RANS, 'tensor')
-
-
-dataDNS_i = foam.interpDNSOnRANS(dataDNS, meshRANS)
-dataDNS_i['k'] = 0.5 * (dataDNS_i['uu'] + dataDNS_i['vv'] + dataDNS_i['ww'])
-
-l1 = np.shape(U_RANS)[1]
-l2 = np.shape(U_RANS)[2]
-
-
-ReStress_DNS = np.zeros([3,3,l1,l2])
-
-ReStress_DNS[0,0,:,:] = dataDNS_i['uu']
-ReStress_DNS[1,1,:,:] = dataDNS_i['vv']
-ReStress_DNS[2,2,:,:] = dataDNS_i['ww']
-ReStress_DNS[0,1,:,:] = dataDNS_i['uv']
-ReStress_DNS[1,0,:,:] = dataDNS_i['uv']
-
-aij_DNS = np.zeros([3,3,l1,l2])
-dataRANS_k = np.zeros([l1,l2])
-dataRANS_aij = np.zeros([3,3,l1,l2])
-
-for i in range(l1):
-    for j in range(l2):
-        aij_DNS[:,:,i,j] = ReStress_DNS[:,:,i,j]/(2.*dataDNS_i['k'][i,j]) - np.diag([1/3.,1/3.,1/3.])
-        dataRANS_k[i,j] = 0.5 * np.trace(tau_RANS[:,:,i,j])
-        dataRANS_aij[:,:,i,j] = tau_RANS[:,:,i,j]/(2.*dataRANS_k[i,j]) - np.diag([1/3.,1/3.,1/3.])
-        
-
-
-
-eigVal_DNS = foam.calcEigenvalues(ReStress_DNS, dataDNS_i['k'])
-baryMap_DNS = foam.barycentricMap(eigVal_DNS)
-
-eigVal_RANS = foam.calcEigenvalues(tau_RANS, dataRANS_k)
-baryMap_RANS = foam.barycentricMap(eigVal_RANS)
-
-baryMap_discr = foam.baryMap_discr(baryMap_RANS, baryMap_DNS)
+p = plotRF(Nest, Nfeatures, X, Y, [10595])
 
 plt.figure()
-plt.title("DNS")
-plt.plot(baryMap_DNS[0,:,:],baryMap_DNS[1,:,:],'b*')
-plt.plot([0,1,0.5,0],[0,0,np.sin(60*(np.pi/180)),0],'k-')
-plt.axis('equal')
+plt.title("score, number of estimators")
+plt.plot(Nest, p[:,0])
 plt.show()
 
 plt.figure()
-plt.title("RANS (Re2800")
-plt.plot(baryMap_RANS[0,:,:],baryMap_RANS[1,:,:],'b*')
-plt.plot([0,1,0.5,0],[0,0,np.sin(60*(np.pi/180)),0],'k-')
-plt.axis('equal')
-plt.show()
-'''
-plt.figure()
-plt.title("Discripancy")
-plt.plot(baryMap_discr[0,:,:],baryMap_discr[1,:,:],'b*')
-plt.plot([0,1,0.5,0],[0,0,np.sin(60*(np.pi/180)),0],'k-')
-plt.axis('equal')
+plt.title("score, number of features")
+plt.plot(Nfeatures, p[0,:])
 plt.show()
 
 plt.figure()
-plt.title("Discripancy after RF")
-plt.plot(test_discr[0,:,:],test_discr[1,:,:],'b*')
-plt.plot([0,1,0.5,0],[0,0,np.sin(60*(np.pi/180)),0],'k-')
-plt.axis('equal')
-plt.show()
-'''
-plt.figure()
-plt.title("RANS data (Re2800) corrected with predicted descripancies from RF")
-plt.plot(np.add(test_discr[0,:,:], baryMap_RANS[0,:,:]) ,np.add(test_discr[1,:,:],baryMap_RANS[1,:,:]),'b*')
-plt.plot([0,1,0.5,0],[0,0,np.sin(60*(np.pi/180)),0],'k-')
-plt.axis('equal')
+plt.title("score")
+plt.contourf(Nfeatures, Nest, p)
+plt.ylabel("Number of estimators")
+plt.xlabel("Number of features")
+plt.colorbar()
 plt.show()
 
-
- 
-   
-
-
-
-
+          
+            
     
+    
+     
