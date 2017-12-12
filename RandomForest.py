@@ -333,12 +333,12 @@ plt.axis('equal')
 plt.show()
 
 plt.figure()
-plt.title("RANS")
+plt.title("RANS (Re2800")
 plt.plot(baryMap_RANS[0,:,:],baryMap_RANS[1,:,:],'b*')
 plt.plot([0,1,0.5,0],[0,0,np.sin(60*(np.pi/180)),0],'k-')
 plt.axis('equal')
 plt.show()
-
+'''
 plt.figure()
 plt.title("Discripancy")
 plt.plot(baryMap_discr[0,:,:],baryMap_discr[1,:,:],'b*')
@@ -352,9 +352,9 @@ plt.plot(test_discr[0,:,:],test_discr[1,:,:],'b*')
 plt.plot([0,1,0.5,0],[0,0,np.sin(60*(np.pi/180)),0],'k-')
 plt.axis('equal')
 plt.show()
-
+'''
 plt.figure()
-plt.title("RANS")
+plt.title("RANS data (Re2800) corrected with predicted descripancies from RF")
 plt.plot(np.add(test_discr[0,:,:], baryMap_RANS[0,:,:]) ,np.add(test_discr[1,:,:],baryMap_RANS[1,:,:]),'b*')
 plt.plot([0,1,0.5,0],[0,0,np.sin(60*(np.pi/180)),0],'k-')
 plt.axis('equal')
