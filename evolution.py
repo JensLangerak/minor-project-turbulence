@@ -8,31 +8,54 @@ import numpy as np
 #fitness score calculation
 def calcFitness(output, ref):
     a = output[0] - ref[0]
-    b = output[1] - ref[1]
+    b = a#output[1] - ref[1]
     return math.sqrt(a * a + b * b)
 
-half_population = 20
-population = 2 * half_population
-nr_nodes=5
+def diversity(solutionList):
+    dim = np.shape(solutionList)
+    k = 0
+    for j in range(dim[1]):
+        symbols = 60 * [0]
+        for i in range(dim[0]):
+            if (symbols[solutionList[i][j]] == 0):
+                k += 1
+                symbols[solutionList[i][j]] = 1
+    
+    return k / dim[1] / (2 * half_population)
+
+def average(Fitnesslist):
+    sumFit = 0
+    for i in range(population):
+        sumFit += Fitnesslist[i][1]
+    return sumFit / population
+
+half_population = 30
+population = 2 * half_population + 1 
+nr_nodes=20
 node_size=3
-mutation_chance = 0.05
-max_error = 0.1
+mutation_chance = 0.10
+max_error = 0.01
 
 #stage 1: create solutionLists
 solutionLists=population*[None]
 for i in range(population):
-    solutionLists[i]=random.sample(range(0,50),nr_nodes*node_size)
+    solutionLists[i]=np.random.randint(0,50, nr_nodes*node_size)
     
 
 
 #stage 2: calculate outputs
-ref =       [[0, 0],       [1,1],          [4,4],     [9,9]]
-features = [[0,1,2],      [1,2,3],      [2,1,3],     [3,0,0]]
+ref =  []
+features = []
+for i in range(100):
+    features += [[i]]
+    res = 3 * i ** 3 - 2 * i ** 2 +  i
+    ref += [[res, res]]
 
 Fitnesslist=population*[None]
-smallestError = 100
+smallestError = 10000000
+result = solutionLists[0]
 stop = 0;
-for g in range(100):
+for g in range(500):
     if (smallestError < max_error):
         break
     
@@ -48,6 +71,7 @@ for g in range(100):
     Fitnesslist.sort(key=lambda x: x[1])
     
     if (Fitnesslist[0][1] < smallestError):
+            result = solutionLists[Fitnesslist[0][0]]
             smallestError = Fitnesslist[0][1]
             print (translate(features[0], solutionLists[Fitnesslist[0][0]]))
             print (smallestError)
@@ -61,7 +85,7 @@ for g in range(100):
     for i in range(population):
         selectionList += (population - i) * [Fitnesslist[i][0]]
         
-    nextGeneration = population*[None]
+    nextGeneration = (population)*[None]
     for i in range(half_population):
         p1 = selectionList[random.randint(0,len(selectionList) - 1)]
         p2 = selectionList[random.randint(0,len(selectionList) - 1)]
@@ -87,10 +111,12 @@ for g in range(100):
         nextGeneration[2 * i] = c1
         nextGeneration[2 * i + 1] = c2
     
+    nextGeneration[population - 1] = result
+
     
+    print("Generation ", g, " error ", Fitnesslist[0][1], " med ", Fitnesslist[half_population][1], " div ", diversity(solutionLists))
+
     solutionLists = nextGeneration
-    print("Generation ", g, " error ", Fitnesslist[0][1], " avg ", sum(Fitnesslist[:][1]) / len(Fitnesslist[:][1]))
-    
 
 print (cgp(features[0], result))
 print (cgp(features[1], result))
