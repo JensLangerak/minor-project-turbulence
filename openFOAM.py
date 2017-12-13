@@ -1,8 +1,6 @@
 from __future__ import division
 import numpy as np
 import os
-import math
-import matplotlib.pyplot as plt
 import csv as csv
 import scipy.interpolate as interp
 
@@ -387,7 +385,56 @@ def interpDNSOnRANS(dataDNS, meshRANS):
             data[var] = interp.griddata(xy, dataDNS[var], (meshRANS[0,:,:], meshRANS[1,:,:]), method='linear')
 
     return data
+
+def eigenDecomposition(aij):
+    #eigendecomposition of a tensor, returns the eigenvalues and eigenvectors 
+    # which are sorted (lambda_1 >= lambda_2 >= lambda_3)
+    # TODO: make exception for non-2D mesh
+    eigVec = np.zeros([3,3,aij.shape[2],aij.shape[3]])
+    eigVal = np.zeros([3,3,aij.shape[2],aij.shape[3]])
     
+    for i1 in range(aij.shape[2]):
+        for i2 in range(aij.shape[3]):
+            #calculate eigenvalues and vectors
+            eigDecomp = np.linalg.eig(aij[:,:,i1,i2])
+            
+            # get sorting indices (argsort), and flip to get l1<=l2<=l3
+            sort_index = np.flip(np.argsort(eigDecomp[0]),axis=-1)
+            sortVec = eigDecomp[1][:,sort_index]
+            sortVal = eigDecomp[0][sort_index]
+            
+            eigVec[:,:,i1,i2] = (sortVec)
+            eigVal[:,:,i1,i2] = (np.diag(sortVal))
+    return eigVal,eigVec
+
+def eigenvectorToEuler(eigVec):
+    # get the euler angles (phi) for the eigenvectors (use to train the random forest)
+    # TODO: make exception for non-2D mesh
+    phi = np.zeros([3,eigVec.shape[2],eigVec.shape[3]])
+    
+    FOR1 = np.array([[1,0,0],[0,1,0],[0,0,1]]) #standard frame of reference
+    for i1 in range(eigVec.shape[2]):
+        for i2 in range(eigVec.shape[3]):
+            R = np.dot(np.linalg.inv(FOR1),eigVec[:,:,i1,i2])
+            phi[0,i1,i2] = np.arctan2(R[1,0],R[0,0]) #alpha (rotates the z-axis)
+            phi[1,i1,i2] = np.arctan2(-R[2,0],np.sqrt(R[2,1]**2+R[2,2]**2))
+            phi[2,i1,i2] = np.arctan2(R[2,1],R[2,2]) #gamma (rotates the x-axis)
+    return phi
+
+def eulerToEigenvector(phi):
+    # reconstruct eigenvector from given euler angles
+    # TODO: make exception for non-2D mesh
+    FOR1 = np.array([[1,0,0],[0,1,0],[0,0,1]]) #standard frame of reference
+    eigVec = np.zeros([3,3,phi.shape[1],phi.shape[2]]) #initialize eigenvector
+    for i1 in range(phi.shape[1]):
+        for i2 in range(phi.shape[2]):
+            #rotation matrix:
+            Rx = np.array([[1,0,0],[0, np.cos(phi[2,i1,i2]), -np.sin(phi[2,i1,i2])],[0, np.sin(phi[2,i1,i2]), np.cos(phi[2,i1,i2])]])
+            Ry = np.array([[np.cos(phi[1,i1,i2]),0,np.sin(phi[1,i1,i2])],[0,1,0],[-np.sin(phi[1,i1,i2]),0,np.cos(phi[1,i1,i2])]])
+            Rz = np.array([[np.cos(phi[0,i1,i2]),-np.sin(phi[0,i1,i2]),0],[np.sin(phi[0,i1,i2]),np.cos(phi[0,i1,i2]),0],[0,0,1]])
+            eigVec[:,:,i1,i2] = np.dot(Rz,np.dot(Ry,np.dot(Rx,FOR1)))
+    return eigVec
+
 def writeP(case, time, var, data):
     #file = open(case + '/' + str(time) + '/' + var,'r').readlines()
     copy(case + '/' + str(time) + '/' + var, case + '/' + str(time) + '/' + var)

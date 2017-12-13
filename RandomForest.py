@@ -8,6 +8,11 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.tree import export_graphviz
     
 
+def reshapeGrid(a, nx, ny):
+    b = np.reshape(a.swapaxes(1,2), (nx*ny, 2), "F")
+    c = np.reshape(b.swapaxes(1,0), (nx*ny, 2))
+    return c
+
 ##################################################################################################################
 ######################################### Loading the RANS data ##################################################
 ##################################################################################################################
@@ -42,7 +47,7 @@ def RANS(Re, TurbModel, time_end, nx, ny):
     yWall_list = foam.getRANSScalar(dir_RANS, time_end, 'yWall')
     yWall        = foam.getRANSPlane(yWall_list,'2D', nx, ny, 'scalar')
     #omega
-    omega_list  = foam.getRANSScalar(dir, time_end, 'omega')
+    omega_list  = foam.getRANSScalar(dir_RANS, time_end, 'omega')
     omega      = foam.getRANSPlane(omega_list, '2D', nx, ny, 'scalar')
     #S R tensor
     S, Omega  = foam.getSRTensors(gradU)
@@ -156,12 +161,12 @@ def q9(tau, k):
 ######################################### Feature function #######################################################
 ##################################################################################################################
     
-def features(Re, TurbModel='kOmega', time_end=30000, nx_RANS=140, ny_RANS=150):
-    X = np.zeros((nx_RANS*len(Re) * ny_RANS, 9))
+def features(Re, TurbModel='kOmega', time_end=30000, nx=140, ny=150):
+    X = np.zeros((nx*len(Re) * ny, 9))
     
     for i in range(len(Re)):
-        meshRANS, U_RANS, gradU_RANS, p_RANS, gradp_RANS, tau_RANS, k_RANS, gradk_RANS, yWall_RANS, omega_RANS, S_RANS, Omega_RANS = RANS(Re[i], TurbModel, time_end, nx_RANS, ny_RANS)
-        feature = np.zeros((9, nx_RANS, ny_RANS))
+        meshRANS, U_RANS, gradU_RANS, p_RANS, gradp_RANS, tau_RANS, k_RANS, gradk_RANS, yWall_RANS, omega_RANS, S_RANS, Omega_RANS = RANS(Re[i], TurbModel, time_end, nx, ny)
+        feature = np.zeros((9, nx, ny))
         feature[0,:,:] = q1(S_RANS, Omega_RANS)
         feature[1,:,:] = q2(k_RANS, U_RANS)
         feature[2,:,:] = q3(k_RANS, yWall_RANS)
@@ -171,22 +176,22 @@ def features(Re, TurbModel='kOmega', time_end=30000, nx_RANS=140, ny_RANS=150):
         feature[6,:,:] = q7(U_RANS, gradU_RANS)
         feature[7,:,:] = q8(U_RANS, gradk_RANS, tau_RANS, S_RANS)
         feature[8,:,:] = q9(tau_RANS, k_RANS)
-        feature = np.reshape(feature.swapaxes(1,2), (nx_RANS*ny_RANS, 9), "F")
-        feature = np.reshape(feature.swapaxes(1,0), (nx_RANS*ny_RANS, 9))
-        X[i*nx_RANS*ny_RANS:(i+1)*nx_RANS*ny_RANS, :] = feature
+        feature = np.reshape(feature.swapaxes(1,2), (nx*ny, 9), "F")
+        feature = np.reshape(feature.swapaxes(1,0), (nx*ny, 9))
+        X[i*nx*ny:(i+1)*nx*ny, :] = feature
     return X
 
 ##################################################################################################################
 ##################################### Eigenvalue discripancy function ############################################
 ##################################################################################################################
 
-def response(Re, nx_RANS=140, ny_RANS=150): 
-    Y = np.zeros((nx_RANS*len(Re)*ny_RANS, 2))
+def response(Re, nx=140, ny=150): 
+    Y = np.zeros((nx*len(Re)*ny, 6))
     
     for i in range(len(Re)):
         home = os.path.realpath('MinorCSE') + '/'
         dataset = home + ('DATA_CASE_LES_BREUER') + '/' + ('Re_%i' % Re[i]) + '/' + ('Hill_Re_%i_Breuer.csv' % Re[i])
-        meshRANS, U_RANS, gradU_RANS, p_RANS, gradp_RANS, tau_RANS, k_RANS, gradk_RANS, yWall_RANS, omega_RANS, S_RANS, Omega_RANS = RANS(Re[i], TurbModel='kOmega', time_end=30000, nx_RANS=140, ny_RANS=150)
+        meshRANS, U_RANS, gradU_RANS, p_RANS, gradp_RANS, tau_RANS, k_RANS, gradk_RANS, yWall_RANS, omega_RANS, S_RANS, Omega_RANS = RANS(Re[i], TurbModel='kOmega', time_end=30000, nx=140, ny=150)
 
         dataDNS = foam.loadData_avg(dataset)
         dataDNS_i = foam.interpDNSOnRANS(dataDNS, meshRANS)
@@ -211,20 +216,27 @@ def response(Re, nx_RANS=140, ny_RANS=150):
                 aij_DNS[:,:,j,k] = ReStress_DNS[:,:,j,k]/(2.*dataDNS_i['k'][j,k]) - np.diag([1/3.,1/3.,1/3.])
                 dataRANS_k[j,k] = 0.5 * np.trace(tau_RANS[:,:,j,k])
                 dataRANS_aij[:,:,j,k] = tau_RANS[:,:,j,k]/(2.*dataRANS_k[j,k]) - np.diag([1/3.,1/3.,1/3.])
-
-        eigVal_DNS = foam.calcEigenvalues(ReStress_DNS, dataDNS_i['k'])
-        baryMap_DNS = foam.barycentricMap(eigVal_DNS)                           
-
-        eigVal_RANS = foam.calcEigenvalues(tau_RANS, dataRANS_k)
+        
+        
+        
+        eigVal_RANS,eigVec_RANS =  foam.eigenDecomposition(dataRANS_aij)
+        eigVal_DNS,eigVec_DNS =  foam.eigenDecomposition(aij_DNS)
+        
         baryMap_RANS = foam.barycentricMap(eigVal_RANS)
+        baryMap_DNS = foam.barycentricMap(eigVal_DNS)    
 
-        baryMap_discr = foam.baryMap_discr(baryMap_RANS, baryMap_DNS)
-        baryMap_discr = np.reshape(baryMap_discr.swapaxes(1,2), (nx_RANS*ny_RANS, 2), "F")
-        baryMap_discr = np.reshape(baryMap_discr.swapaxes(1,0), (nx_RANS*ny_RANS, 2))
-
-        Y[i*nx_RANS*ny_RANS:(i+1)*nx_RANS*ny_RANS, :] = baryMap_discr
+        baryMap_discr = reshapeGrid(foam.baryMap_discr(baryMap_RANS, baryMap_DNS), 140, 150)
+        
+        phi_RANS =  reshapeGrid(foam.eigenvectorToEuler(eigVec_RANS), 140, 150)
+        phi_DNS = reshapeGrid(foam.eigenvectorToEuler(eigVec_DNS), 140, 150)
+        
+        
+        Y[i*nx*ny:(i+1)*nx*ny, 0:2] = baryMap_discr
+        Y[i*nx*ny:(i+1)*nx*ny, 2:6] = phi_DNS - phi_RANS
+        Y[i*nx*ny:(i+1)*nx*ny, 6] = reshapeGrid(dataDNS_i['k'], 140, 150) - reshapeGrid(k_RANS, 140, 150)
     return Y
     
+
 
 ##################################################################################################################
 ######################################### Random forest ##########################################################
@@ -232,7 +244,7 @@ def response(Re, nx_RANS=140, ny_RANS=150):
 
 Re = [700, 1400, 2800, 5600, 10595]
 Re_train = np.delete(Re, 2)
-Re_test = Re[2]
+Re_test = [Re[2]]
 
 X_train = features(Re_train)
 Y_train = response(Re_train)
@@ -247,7 +259,7 @@ print("Feature importance :", regr.feature_importances_)
 
 test_X = features(Re_test)
 test_discr = regr.predict(test_X)
-test_discr = np.reshape(test_discr.swapaxes(1,0), (2, 140, 150))
+test_discr = np.reshape(test_discr.swapaxes(1,0), (6, 140, 150))
 
 '''
 time_end      = 30000 
