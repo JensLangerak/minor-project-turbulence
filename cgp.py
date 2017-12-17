@@ -2,70 +2,131 @@
 """
 Created on Wed Dec  6 09:46:08 2017
 
-@author: jens
+This file is able to execute a Cartesian Genetic Programming program (cgp). The program can be represented by a list of
+integers. This list representation of integers is called the solutionList or chromosome. In this list a node is
+represented by 3 integers. The first two integers refers to the input indices and the third integer translates to the
+operation that should be performed with the inputs.
+
+A node refers to a single operation in a cgp program. This consist of two inputs and an operation.
+The result of <input 1> <operation> <input 2> is the output of the node and can be used in any successive node.
+Features are the input values for the entire model, this are the only inputs that the first node can use.
+Inputs refer to any value that a node (single operation) can use for its computation. The possible inputs are all the
+features and the result of the previous nodes. The final input list contains all the features and all the outputs of the
+nodes.
+
+Input_id refers to the location in the input list.
+Node_id refers to the location in the chromosome or translated list. (note since a node contains of node_size elements
+this id should be multiplied by node_size)
+
+The output are the outputs of the last #outputs (currently 2) nodes.
 """
+
 import math
 
-node_size = 3
-outputs = 2
-operations = 3
-
-def translate(features, solutionList):
- #   print (inputs)
-    nr_nodes = math.floor(len(solutionList) / node_size)
-    nr_features = len(features);
-    operationlist=['+', '-', '*', '/'] #what if division by zero?
-    newlist= [0] * len(solutionList)
-    if (nr_features > 3):
-        print (features)
-    for i in range(nr_nodes): #turns numbers into the right numbers/operation
-        newlist[node_size*i]=solutionList[node_size*i]%(nr_features+i)
-        newlist[node_size*i+1]=solutionList[node_size*i+1]%(nr_features+i)
-        newlist[node_size*i+2]=operationlist[solutionList[node_size*i+2]%operations]
-    return newlist
+node_size = 3  # How many numbers are needed for one node. Two for the input and one to determine the operation.
+outputs = 2  # Number of outputs that should be returned.
+operations = 3  # Number of supported operations.
 
 
-def cgp(features, solutionList): #function that interpretes solution in terms of features -> returns two outputs
-    nr_nodes = math.floor(len(solutionList) / node_size)
-    nr_features = len(features);
-    inputs = [None] * (nr_features + nr_nodes) #length of final input features 
-    for i in range(len(features)):
-        inputs[i] = features[i] #make deep copy of features
-    newlist = translate(features, solutionList)
-#    print(newlist)
-#    print ('begin')
-    output1 = calculateInput(newlist, nr_nodes + len(features)- 1, inputs, nr_features)
- #   print (inputs)
-    output2 = calculateInput(newlist, nr_nodes + len(features)- 2, inputs, nr_features)
- #   print ('end')
+def translate(nr_features, chromosome):
+    """
+    Translate a list of numbers (chromosome) into an representation of a cartesian genetic program.
+    :param nr_features: number of feature that will be used in the genetic program.
+    :param chromosome: The solutionList, List of numbers that should be translated into a cartesian genetic program.
+    :return: A list representation of a cartesian genetic program.
+    """
+    nr_nodes = math.floor(len(chromosome) / node_size)
+    operation_list = ['+', '-', '*', '/']  # What if division by zero?
 
-    return [output1,output2]
+    translated_list= [0] * len(chromosome) # Create new list in advance (is faster than with append)
+    for i in range(nr_nodes):  # Turns numbers into the right numbers/operation
+        # starts with 0 and can be used to determine how many outputs of nodes can be used as input.
+        translated_list[node_size*i  ] = chromosome[node_size*i  ] % (nr_features+i)  # input 1
+        translated_list[node_size*i+1] = chromosome[node_size*i+1] % (nr_features+i)  # input 2
 
-def calculateInput(newlist, input_id, inputs, nr_features):
-    if (inputs[input_id] is not None):
-    #    print( "return" , input_id)
+        translated_list[node_size*i+2] = operation_list[chromosome[node_size*i+2] % operations]  # operaion
+    return translated_list
+
+
+def cgp(features, chromosome):  #function that interpretes solution in terms of features -> returns two outputs
+    """
+    Functions that translates a chromosome to a cgp program and applies the features to that program. Returns the output
+    of the last #outputs nodes.
+    :param features: Features that should be used to calculate the result.
+    :param chromosome: The solutionList, List of numbers that should be translated to a cartesian genetic program.
+    :return: The output of the last #outputs nodes.
+    """
+    nr_nodes = math.floor(len(chromosome) / node_size)  # number of nodes in the chromosome
+    nr_features = len(features)
+    nr_inputs = nr_nodes + nr_features
+
+    if nr_inputs < outputs:
+        raise ValueError("Number of possible outputs is smaller than the number of desired outputs")
+
+    # Inputs is used to keep track of the input values that are already calculated (or known at the start). This list
+    # makes sure the each node is evaluated at most once. When it start it only knows the values of the features.
+    # During the computation the list is filled with the output of the nodes.
+    inputs = [None] * nr_inputs  # Create list. None means that the value is not yet known.
+    for i in range(nr_features):
+        inputs[i] = features[i]  # Copy the features into the input list.
+
+    translated_list = translate(nr_features, chromosome) # translate the chomoso\mne into a cgp program.
+
+    # get outputs number of outputs. The first output is the last node, the second output is the second-last node etc.
+    result = []
+    for i in range(1, outputs + 1):
+        # Get the output of the last + 1 - i node and append it to the result list. (nr_inputs is last + 1)
+        # The inputs list contains the values of all computed nodes and is used to pass these values to successive calls
+        # of calculate_input
+        result.append(calculate_input(translated_list, nr_inputs - i, inputs, nr_features))
+
+    return result
+
+
+def calculate_input(cgp_program, input_id, inputs, nr_features):
+    """
+    Get the value for input input_id. At the end of the function, the outputs of the nodes that are evaluated are stored
+    in inputs.
+    :param cgp_program: A cgp program, stored as list. Is the translation of a chromosome
+    :param input_id: ID of the input that must be returned. The first ids are the features [0, #features - 1] and the
+    other ids are the outputs of the nodes [#features, #features + #nodes - 1]
+    :param inputs: List that keeps track of all computed inputs. At the start it only contains the values for the
+    inputs. Currently unknown values have the value None.
+    :param nr_features: #features in inputs
+    :return: the values of inputs[input_id]
+    """
+
+    if inputs[input_id] is not None:  # value is already known, return value
         return inputs[input_id]
 
- #   print( "calc" , input_id)
-    node_id = input_id - nr_features
+    node_id = input_id - nr_features  # inputs[input_id] is not yet known, thus is not a feature, calculate the node_id
 
-    a_index =newlist[node_size*(node_id)]
-    b_index =newlist[node_size*(node_id)+1]
+    # Get the input index for the two inputs of this node.
+    a_index = cgp_program[node_size*node_id]
+    b_index = cgp_program[node_size*node_id+1]
 
-    a = calculateInput(newlist, a_index,inputs, nr_features)
-    b = calculateInput(newlist, b_index, inputs, nr_features)
-    o = newlist[node_size * node_id + 2]
-    
+    # Get the value of the two inputs
+    a = calculate_input(cgp_program, a_index, inputs, nr_features)
+    b = calculate_input(cgp_program, b_index, inputs, nr_features)
+
+    # Get the operation.
+    o = cgp_program[node_size * node_id + 2]
+
+    # Calculate the output of this node.
     if o =='+':
-        output1=a+b
+        output = a+b
     elif o =='-':
-        output1=a-b
+        output = a-b
     elif o =='*':
-        output1=a*b
-    else: 
-        output1=a/b
-    inputs[input_id]=output1
-    return output1
+        output = a*b
+    else: # not yet used
+        if (b == 0) :
+            raise ZeroDivisionError()
+        output = a/b
+
+    # Store the output in the inputs list.
+    inputs[input_id] = output
+    return output
 
 
 #main program
