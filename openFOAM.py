@@ -290,7 +290,7 @@ def calcEigenvalues(tau, k):
     elif len(tau.shape)==4:
         l=tau.shape[2]
         l2=tau.shape[3]
-        print (l,l2)
+        #print (l,l2)
         tauAni = np.zeros([3,3,l,l2])
         for i in range(l):
             for j in range(l2):
@@ -339,7 +339,7 @@ def barycentricMap(eigVal):
                 locY[i,j] = np.sqrt(3)/2 * Cc[2,i,j]
 
 
-    return np.array([locX, locY])
+        return np.array([locX, locY])
 
 def baryMap_discr(baryMap_RANS,baryMap_DNS):
     a = np.shape(baryMap_RANS)
