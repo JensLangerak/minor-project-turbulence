@@ -12,15 +12,18 @@ from cgp import *
 import math
 import random
 import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+from matplotlib import style
 
-half_population = 30  # 0.5 * the number of chromosomes in a single generation
+half_population = 50  # 0.5 * the number of chromosomes in a single generation
 nr_nodes = 20  # number of nodes in the chromosomes
 node_size = 3  # size of a node in the chromosome
-mutation_chance = 0.10 # (0-1) chance that an element gets a random value.
+mutation_chance = 0.09 # (0-1) chance that an element gets a random value.
 max_error = 0.0001  # stop when error is smaller than this value.
 
 
-population_size = 2 * half_population + 1 # total population size, +1 for the best previous solution
+population_size = 2 * half_population# + 1 # total population size, +1 for the best previous solution
 
 
 def calculate_fitness(calculated, reference):
@@ -44,7 +47,7 @@ def diversity(population):
     dim = np.shape(population)
     k = 0
     for j in range(dim[1]):
-        symbols = 60 * [0]
+        symbols = 100 * [0]
         # For each position count the number of different symbols.
         for i in range(dim[0]):
             if symbols[population[i][j]] == 0:
@@ -75,7 +78,7 @@ def create_base_population(size):
     population = size * [None]
     for i in range(size):
         # TODO replace 50 with something not hardcoded.
-        population[i] = np.random.randint(0, 50, nr_nodes * node_size)
+        population[i] = np.random.randint(0, 99, nr_nodes * node_size)
     return population
 
 
@@ -98,6 +101,11 @@ def test_population(population, features, reference):
         fitness_list[i] = (i, fitness / len(features))
     return fitness_list
 
+def get_index():
+    index = population_size
+    while (index > population_size - 1):
+        index = math.floor(abs(random.normalvariate(0, 0.35 * half_population)))
+    return index
 
 def create_next_generation(fitness_list, population, best_solution):
     """
@@ -117,10 +125,14 @@ def create_next_generation(fitness_list, population, best_solution):
     next_generation = population_size * [None]
     for i in range(half_population):
         # select parents
-        parent_id_1 = crossover_selection_list[random.randint(0, len(crossover_selection_list) - 1)]
-        parent_id_2 = crossover_selection_list[random.randint(0, len(crossover_selection_list) - 1)]
-        parent_1 = population[parent_id_1]
-        parent_2 = population[parent_id_2]
+      #  parent_id_1 = crossover_selection_list[random.randint(0, len(crossover_selection_list) - 1)]
+      #  parent_id_2 = crossover_selection_list[random.randint(0, len(crossover_selection_list) - 1)]
+
+        parent_id_1 = get_index()
+        parent_id_2 = get_index()
+
+        parent_1 = population[fitness_list[parent_id_1][0]]
+        parent_2 = population[fitness_list[parent_id_2][0]]
 
         # get crossover location
         cross_location = random.randint(1, nr_nodes * node_size)
@@ -138,16 +150,16 @@ def create_next_generation(fitness_list, population, best_solution):
 
             # apply mutation
             if random.uniform(0, 1) < mutation_chance:
-                child_1[j] = random.randint(0, 50)
+                child_1[j] = random.randint(0, 99)
             if random.uniform(0, 1) < mutation_chance:
-                child_2[j] = random.randint(0, 50)
+                child_2[j] = random.randint(0, 99)
 
         # add children to the next generation.
         next_generation[2 * i] = child_1
         next_generation[2 * i + 1] = child_2
 
     # add best solution to the next generation
-    next_generation[population_size - 1] = best_solution
+ #   next_generation[population_size - 1] = best_solution
     return next_generation
 
 
@@ -184,11 +196,41 @@ def evolve(features, reference):
                     print("Done")
                     break
 
+        xs.append(g)
+
+        interval = math.floor(population_size / len(ys))
+
+        for i in range(len(ys)):
+            ys[i].append(1 / fitness_list[interval * i][1])
+        tick()
         print("Generation ", g, ", smallest error: ", fitness_list[0][1], ", error median: ",
               fitness_list[half_population][1], ", diversity: ", diversity(population))
 
         population = create_next_generation(fitness_list, population, best_solution)
     return best_solution
+
+xs = []
+ys = []
+for i in range(10):
+    ys.append([])
+ax = []
+fig = plt.figure()
+print(ys)
+for i in range(len(ys)):
+    ax.append(fig.add_subplot(111))
+plt.ion()
+
+
+fig.show()
+fig.canvas.draw()
+
+def tick():
+    for i in range(len(ys)):
+        ax[i].clear()
+    for i in range(len(ys)):
+        ax[i].plot(xs, ys[i])
+    fig.canvas.draw()
+    plt.pause(0.001)
 
 
 """
@@ -196,11 +238,15 @@ Generate test data
 """
 ref = []
 f = []
-for x in range(1, 20, 2):
-    for y in range(1, 20, 2):
-        f += [[x, y, 3]]
-        res = 2 * x - y + 3 * x * y
-        ref += [[res, res]]
+for x in range(5, 20, 6):
+    for y in range(5, 20, 6):
+        for z in range(5, 20, 6):
+            for u in range(5, 20, 6):
+                f += [[x, y, z, u]]
+                res = 2 * x - 3 * y + 4 * z - u * x
+                ref += [[res, res]]
+
+
 result = evolve(f, ref)
 print(cgp(f[0], result))
 print(cgp(f[1], result))
