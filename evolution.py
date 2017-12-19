@@ -15,11 +15,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib import style
+import time
 
-half_population = 50  # 0.5 * the number of chromosomes in a single generation
+half_population = 20  # 0.5 * the number of chromosomes in a single generation
 nr_nodes = 20  # number of nodes in the chromosomes
 node_size = 3  # size of a node in the chromosome
-mutation_chance = 0.09 # (0-1) chance that an element gets a random value.
+mutation_chance = 0.10 # (0-1) chance that an element gets a random value.
 max_error = 0.0001  # stop when error is smaller than this value.
 
 
@@ -44,17 +45,7 @@ def diversity(population):
     :param population: A list of chromosomes
     :return: A diversity score for the given population.
     """
-    dim = np.shape(population)
-    k = 0
-    for j in range(dim[1]):
-        symbols = 100 * [0]
-        # For each position count the number of different symbols.
-        for i in range(dim[0]):
-            if symbols[population[i][j]] == 0:
-                k += 1
-                symbols[population[i][j]] = 1
-    
-    return k / dim[1] / population_size
+    return 1
 
 
 def average(fitness_list):
@@ -69,6 +60,9 @@ def average(fitness_list):
     return total / population_size
 
 
+nr_features = 4
+
+
 def create_base_population(size):
     """
     Create a base population of size number of chromosomes.
@@ -78,7 +72,7 @@ def create_base_population(size):
     population = size * [None]
     for i in range(size):
         # TODO replace 50 with something not hardcoded.
-        population[i] = np.random.randint(0, 99, nr_nodes * node_size)
+        population[i] = translate(nr_features, np.random.randint(0, 99, nr_nodes * node_size))
     return population
 
 
@@ -101,11 +95,13 @@ def test_population(population, features, reference):
         fitness_list[i] = (i, fitness / len(features))
     return fitness_list
 
+
 def get_index():
     index = population_size
     while (index > population_size - 1):
         index = math.floor(abs(random.normalvariate(0, 0.35 * half_population)))
     return index
+
 
 def create_next_generation(fitness_list, population, best_solution):
     """
@@ -150,9 +146,10 @@ def create_next_generation(fitness_list, population, best_solution):
 
             # apply mutation
             if random.uniform(0, 1) < mutation_chance:
-                child_1[j] = random.randint(0, 99)
+                child_1[j] = translate_item(nr_features, j, random.randint(0, 99))
+
             if random.uniform(0, 1) < mutation_chance:
-                child_2[j] = random.randint(0, 99)
+                child_2[j] = translate_item(nr_features, j, random.randint(0, 99))
 
         # add children to the next generation.
         next_generation[2 * i] = child_1
@@ -188,7 +185,7 @@ def evolve(features, reference):
                 smallest_error = fitness_list[0][1]  # store the error
 
                 # print for debugging
-                print (translate(len(features[0]), population[fitness_list[0][0]]))
+                print ( population[fitness_list[0][0]])
                 print (smallest_error)
 
                 # check if it can stop
@@ -215,6 +212,7 @@ for i in range(10):
     ys.append([])
 ax = []
 fig = plt.figure()
+plt.interactive(False)
 print(ys)
 for i in range(len(ys)):
     ax.append(fig.add_subplot(111))
@@ -224,9 +222,10 @@ plt.ion()
 fig.show()
 fig.canvas.draw()
 
+
 def tick():
-    for i in range(len(ys)):
-        ax[i].clear()
+  #  for i in range(len(ys)):
+  #      ax[i].clear()
     for i in range(len(ys)):
         ax[i].plot(xs, ys[i])
     fig.canvas.draw()
@@ -238,10 +237,10 @@ Generate test data
 """
 ref = []
 f = []
-for x in range(5, 20, 6):
-    for y in range(5, 20, 6):
-        for z in range(5, 20, 6):
-            for u in range(5, 20, 6):
+for x in range(5, 20, 2):
+    for y in range(5, 20, 2):
+        for z in range(5, 20, 2):
+            for u in range(5, 20, 2):
                 f += [[x, y, z, u]]
                 res = 2 * x - 3 * y + 4 * z - u * x
                 ref += [[res, res]]
@@ -254,7 +253,7 @@ print(cgp(f[2], result))
 print(cgp(f[3], result))
 
 #debug code print result
-tran = translate(len(f[0]), result)
+tran =  result
 for n in range(nr_nodes):
     base = n * node_size
     print(n + len(f[0]), " : ", tran[base], " ",  tran[base + 1], " ",  tran[base + 2], " ")
