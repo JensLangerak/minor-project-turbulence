@@ -391,7 +391,7 @@ def eigenDecomposition(aij):
     # which are sorted (lambda_1 >= lambda_2 >= lambda_3)
     # TODO: make exception for non-2D mesh
     eigVec = np.zeros([3,3,aij.shape[2],aij.shape[3]])
-    eigVal = np.zeros([3,3,aij.shape[2],aij.shape[3]])
+    eigVal = np.zeros([3,aij.shape[2],aij.shape[3]])
     
     for i1 in range(aij.shape[2]):
         for i2 in range(aij.shape[3]):
@@ -404,7 +404,7 @@ def eigenDecomposition(aij):
             sortVal = eigDecomp[0][sort_index]
             
             eigVec[:,:,i1,i2] = (sortVec)
-            eigVal[:,:,i1,i2] = (np.diag(sortVal))
+            eigVal[:,i1,i2] = (sortVal)
     return eigVal,eigVec
 
 def eigenvectorToEuler(eigVec):

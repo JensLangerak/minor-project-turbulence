@@ -541,7 +541,7 @@ def eigenDecomposition(aij):
             sortVal = eigDecomp[0][sort_index]
             
             eigVec[:,:,i1,i2] = (sortVec)
-            eigVal[:,:,i1,i2] = (np.diag(sortVal))
+            eigVal[:,:,i1,i2] = np.diag((sortVal))
     return eigVal,eigVec
 
 

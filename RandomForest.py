@@ -1,25 +1,16 @@
+from __future__ import division
 import numpy as np
 import matplotlib.pyplot as plt
 import openFOAM as foam
+import readDNS as rDNS
 import os
 import sys
 sys.path.append("..")
 from sklearn.ensemble import RandomForestRegressor
-from __future__ import division
-import numpy as np
-import matplotlib.pyplot as plt
-import os
-import openFOAM as foam
+
+
 import sys
 sys.path.append("..")
-
-
-
-from tempfile import mkstemp
-from shutil import move
-from shutil import copy
-from os import remove, close
-
 
 home = os.path.realpath('MinorCSE') + '/'
  
@@ -28,6 +19,9 @@ home = os.path.realpath('MinorCSE') + '/'
 ##################################################################################################################
 def RANS(case, Re, TurbModel, time_end, nx, ny):
     dir_RANS  = home + ('%s' % case) + '/' + ('Re%i_%s' % (Re,TurbModel))
+    if case == 'SquareDuct':
+        dir_RANS = dir_RANS + '_50'
+        
     mesh_list  = foam.getRANSVector(dir_RANS, time_end, 'cellCentres')
     mesh      = foam.getRANSPlane(mesh_list,'2D', nx, ny, 'vector')
     #velocity
@@ -193,13 +187,13 @@ def features(case, Re, TurbModel, time_end, nx, ny):
 ##################################### Eigenvalue discripancy function ############################################
 ##################################################################################################################
 
-def response(case, Re, nx, ny, train): 
+def response(case, Re, TurbModel, time_end, nx, ny, train): 
     if train ==True:
         print('train = true')
-        Y = np.zeros((nx*len(Re)*ny, 2))
+        Y = np.zeros((nx*len(Re)*ny, 6))
         for i in range(len(Re)):
             dataset = home + ('%s' % (case)) + '/' + ('DATA_CASE_LES_BREUER') + '/' + ('Re_%i' % Re[i]) + '/' + ('Hill_Re_%i_Breuer.csv' % Re[i])
-            meshRANS, U_RANS, gradU_RANS, p_RANS, gradp_RANS, tau_RANS, k_RANS, gradk_RANS, yWall_RANS, omega_RANS, S_RANS, Omega_RANS = RANS(case, Re[i], TurbModel='kOmega', time_end=30000, nx=140, ny=150)
+            meshRANS, U_RANS, gradU_RANS, p_RANS, gradp_RANS, tau_RANS, k_RANS, gradk_RANS, yWall_RANS, omega_RANS, S_RANS, Omega_RANS = RANS(case, Re[i], TurbModel, time_end, nx, ny)
 
             dataDNS = foam.loadData_avg(dataset)
             dataDNS_i = foam.interpDNSOnRANS(dataDNS, meshRANS)
@@ -225,31 +219,28 @@ def response(case, Re, nx, ny, train):
                     dataRANS_k[j,k] = 0.5 * np.trace(tau_RANS[:,:,j,k])
                     dataRANS_aij[:,:,j,k] = tau_RANS[:,:,j,k]/(2.*dataRANS_k[j,k]) - np.diag([1/3.,1/3.,1/3.])
 
-            eigVal_DNS = foam.calcEigenvalues(ReStress_DNS, dataDNS_i['k'])
-            baryMap_DNS = foam.barycentricMap(eigVal_DNS)
+            aneigVal_DNS = foam.calcEigenvalues(aij_DNS, dataDNS_i['k'])
+            baryMap_DNS = foam.barycentricMap(aneigVal_DNS)
 
-            eigVal_RANS = foam.calcEigenvalues(tau_RANS, dataRANS_k)
-            baryMap_RANS = foam.barycentricMap(eigVal_RANS)
+            aneigVal_RANS = foam.calcEigenvalues(dataRANS_aij, dataRANS_k)
+            baryMap_RANS = foam.barycentricMap(aneigVal_RANS)
 
-            baryMap_discr = foam.baryMap_discr(baryMap_RANS, baryMap_DNS)
+            
+            eigVal_RANS, eigVec_RANS = foam.eigenDecomposition(dataRANS_aij)
+            eigVal_DNS, eigVec_DNS = foam.eigenDecomposition(aij_DNS)
+            
+            phi_RANS =  np.reshape(( np.reshape((foam.eigenvectorToEuler(eigVec_RANS)).swapaxes(1,2), (nx*ny, 3), "F")).swapaxes(1,0), (nx*ny, 3))
+            phi_DNS =  np.reshape(( np.reshape((foam.eigenvectorToEuler(eigVec_DNS)).swapaxes(1,2), (nx*ny, 3), "F")).swapaxes(1,0), (nx*ny, 3))
+            
+            baryMap_discr = np.reshape(( np.reshape((foam.baryMap_discr(baryMap_RANS, baryMap_DNS)).swapaxes(1,2), (nx*ny, 2), "F")).swapaxes(1,0), (nx*ny, 2))
 
-            baryMap_discr = np.reshape(baryMap_discr.swapaxes(1,2), (nx*ny, 2), "F")
-            baryMap_discr = np.reshape(baryMap_discr.swapaxes(1,0), (nx*ny, 2))
-
-            Y[i*nx*ny:(i+1)*nx*ny, :] = baryMap_discr
-            '''
-            phi_RANS =  reshapeGrid(foam.eigenvectorToEuler(eigVec_RANS), 140, 150)
-            phi_RANS = np.reshape(phi_RANS.swapaxes(1,2), (nx*ny, 2), "F")
-            phi_RANS = np.reshape(phi_RANS.swapaxes(1,0), (nx*ny, 2))
-
-            phi_DNS = reshapeGrid(foam.eigenvectorToEuler(eigVec_DNS), 140, 150)
-            phi_DNS = np.reshape(phi_DNS.swapaxes(1,2), (nx*ny, 2), "F")
-            phi_DNS = np.reshape(phi_DNS.swapaxes(1,0), (nx*ny, 2))
-
+            phi_discr = phi_DNS - phi_RANS
+            k_discr = np.reshape(( np.reshape((dataDNS_i['k'] - k_RANS).swapaxes(1,2), (nx*ny, 1), "F")).swapaxes(1,0), (nx*ny, 1))
+        
             Y[i*nx*ny:(i+1)*nx*ny, 0:2] = baryMap_discr
-            Y[i*nx*ny:(i+1)*nx*ny, 2:6] = phi_DNS - phi_RANS
-            Y[i*nx*ny:(i+1)*nx*ny, 6] = reshapeGrid(dataDNS_i['k'], 140, 150) - reshapeGrid(k_RANS, 140, 150)
-            '''
+            Y[i*nx*ny:(i+1)*nx*ny, 2:5] = phi_discr
+            Y[i*nx*ny:(i+1)*nx*ny, 5] = k_discr[:,0]
+            
 
         print('return Y')
         return Y
@@ -258,7 +249,7 @@ def response(case, Re, nx, ny, train):
         print('train = false')
         for i in range(len(Re)):
             dataset = home + ('%s' % (case)) + '/' + ('DATA_CASE_LES_BREUER') + '/' + ('Re_%i' % Re[i]) + '/' + ('Hill_Re_%i_Breuer.csv' % Re[i])
-            meshRANS, U_RANS, gradU_RANS, p_RANS, gradp_RANS, tau_RANS, k_RANS, gradk_RANS, yWall_RANS, omega_RANS, S_RANS, Omega_RANS = RANS(case, Re[i], TurbModel='kOmega', time_end=30000, nx=140, ny=150)
+            meshRANS, U_RANS, gradU_RANS, p_RANS, gradp_RANS, tau_RANS, k_RANS, gradk_RANS, yWall_RANS, omega_RANS, S_RANS, Omega_RANS = RANS(case, Re[i], TurbModel, time_end, nx, ny)
 
             dataDNS = foam.loadData_avg(dataset)
             dataDNS_i = foam.interpDNSOnRANS(dataDNS, meshRANS)
@@ -285,23 +276,25 @@ def response(case, Re, nx, ny, train):
                     dataRANS_aij[:,:,j,k] = tau_RANS[:,:,j,k]/(2.*dataRANS_k[j,k]) - np.diag([1/3.,1/3.,1/3.])
 
         
-            eigVal_DNS = foam.calcEigenvalues(ReStress_DNS, dataDNS_i['k'])
+            eigVal_DNS = foam.calcEigenvalues(aij_DNS, dataDNS_i['k'])
             print(np.shape(eigVal_DNS))
             baryMap_DNS = foam.barycentricMap(eigVal_DNS)
             print(np.shape(baryMap_DNS))
 
-            eigVal_RANS = foam.calcEigenvalues(tau_RANS, dataRANS_k)
+            eigVal_RANS = foam.calcEigenvalues(dataRANS_aij, dataRANS_k)
             baryMap_RANS = foam.barycentricMap(eigVal_RANS)
             print(np.shape(baryMap_RANS))
             baryMap_discr = foam.baryMap_discr(baryMap_RANS, baryMap_DNS)
             print(np.shape(baryMap_discr))
             print('return bary')
             return baryMap_RANS, baryMap_DNS, baryMap_discr
-    
+        
+        
+##################################################################################################################
 ##################################################################################################################
 ######################################### Random forest ##########################################################
 ##################################################################################################################
-
+'''
 case = 'PeriodicHills'
 
 # Training
@@ -316,7 +309,7 @@ Re = [1800, 2000, 2200, 2400, 2600, 2900, 3200, 3500]
 Re_train = np.delete(Re, 2)
 TurbModel = 'kOmega'
 f = features(case, Re_train, TurbModel='kOmega', time_end=40000, nx=150, ny=150)
-'''
+X_train = features('SquareDuct', Re_train, TurbModel='kOmega', time_end=40000, nx=150, ny=150)
 '''case = 'ConvergingDivergingChannel'
 Re = [12600]
 TurbModel = ='kOmega'
@@ -325,11 +318,11 @@ f = features(Re, TurbModel='kOmega', time_end=7000, nx=140, ny=100)
 '''                                        
 
 
-Y_train = response('PeriodicHills', Re_train, nx=140, ny=150, train = True)
+Y_train = response('SquareDuct', Re_train, TurbModel='kOmega', time_end=40000, nx=150, ny=150, train = True)
 
 regr = RandomForestRegressor(n_estimators=10, criterion='mse', max_depth=None, min_samples_split=2, min_samples_leaf=1, 
     min_weight_fraction_leaf=0.0, max_features='auto', max_leaf_nodes=None, min_impurity_decrease=0.0, 
-    min_impurity_split=None, bootstrap=True, oob_score=False, n_jobs=1, random_state=None, 
+    min_impurity_split=None, bootstrap=True, oob_score=False, n_jobs=-1, random_state=None, 
     verbose=0, warm_start=False)
 
 regr.fit(X_train, Y_train)
@@ -340,11 +333,11 @@ print("Feature importance :", regr.feature_importances_)
 Re_test = [Re[0]]
 print(Re_test)
 
-test_X = features('PeriodicHills', Re_test, TurbModel='kOmega', time_end=30000, nx=140, ny=150)
+test_X = features('SquareDuct', Re_test, TurbModel='kOmega', time_end=40000, nx=150, ny=150)
 test_discr = regr.predict(test_X)
-test_discr = np.reshape(test_discr.swapaxes(1,0), (2, 140, 150))
+test_discr = np.reshape(test_discr.swapaxes(1,0), (6, 150, 150))
 
-baryMap_RANS, baryMap_DNS, baryMap_discr = response('PeriodicHills', Re_test, nx=140, ny=150, train = False)
+baryMap_RANS, baryMap_DNS, baryMap_discr = response('SquareDuct', Re_test, TurbModel='kOmega', time_end=40000, nx=150, ny=150, train = False)
 
 
 # Plots
@@ -384,6 +377,38 @@ plt.plot(test_discr[0,:,:],test_discr[1,:,:],'b*')
 plt.plot([0,1,0.5,0],[0,0,np.sin(60*(np.pi/180)),0],'k-')
 plt.axis('equal')
 plt.show()
+
+'''
+plt.figure()
+plt.title("Velocity from DNS")
+plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], dataDNS_i['um'],20)
+plt.show()
+
+plt.figure()
+plt.title("Velocity from RANS")
+plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], U_RANS[0,:,:],20)
+plt.show()
+
+plt.figure()
+plt.title("k from DNS")
+plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], dataDNS_i['k'],20)
+plt.show()
+ 
+plt.figure()
+plt.title("k from RANS") 
+plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], dataRANS_k,20)
+plt.show()
+
+plt.figure()
+plt.title("dist")
+plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], foam.baryMap_dist(baryMap_RANS,baryMap_DNS))
+plt.show()
+
+plt.figure()
+plt.title("Feature 6")
+plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], q6(gradp_RANS, gradU_RANS, p_RANS,U_RANS))
+plt.show()
+'''
 
 
 ##################################################################################################################
@@ -430,4 +455,5 @@ plt.ylabel("Number of estimators")
 plt.xlabel("Number of features")
 plt.colorbar()
 plt.show()
+
 '''
