@@ -76,6 +76,17 @@ def create_base_population(size):
     return population
 
 
+def exec_code_and_return_x(code_object, f, x):
+    k = eval(code_object)
+    l = eval("1+f[0]")
+    return k
+
+import time
+import pyopencl as cl
+
+
+@vectorize(['float32(float32, float32)'], target='cuda')
+def gpu(features)
 def test_population(population, features, reference):
     """
     Calculates for each individual in the population the fitness score using the given features.
@@ -86,13 +97,21 @@ def test_population(population, features, reference):
     element is the fitness score.
     """
     fitness_list = population_size * [None]
-
+    start = time.time()
     for i in range(population_size):
         fitness = 0.0
+        #ct = complete_translate(population[i], len(features[0]))
+        #func = ct[nr_nodes - 1]
+        #code_local = compile(func, '<string>', 'eval')
         for j in range(len(features)):
+            x = 2
+            #output2 = exec_code_and_return_x(code_local, features[j], x)
+            #output = [output2, output2]
             output = cgp(features[j], population[i])
             fitness += calculate_fitness(output, reference[j])
         fitness_list[i] = (i, fitness / len(features))
+    end = time.time()
+    print(end - start)
     return fitness_list
 
 
@@ -237,10 +256,11 @@ Generate test data
 """
 ref = []
 f = []
-for x in range(5, 20, 2):
-    for y in range(5, 20, 2):
-        for z in range(5, 20, 2):
-            for u in range(5, 20, 2):
+
+for x in range(5, 20, 1):
+    for y in range(5, 20, 1):
+        for z in range(5, 20, 1):
+            for u in range(5, 20, 1):
                 f += [[x, y, z, u]]
                 res = 2 * x - 3 * y + 4 * z - u * x
                 ref += [[res, res]]

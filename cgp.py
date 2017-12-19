@@ -91,6 +91,20 @@ def cgp(features, chromosome):  #function that interpretes solution in terms of 
 
     return result
 
+def complete_translate(cgp_program, nr_features):
+    nr_nodes = 20
+    completeTranslate = (nr_features + nr_nodes) * [""]
+    for i in range(nr_features):
+        completeTranslate[i] = "f[" + str(i) + "]"
+
+    for n in range(nr_nodes):
+        base = n * node_size
+        d = n + nr_features
+        completeTranslate[d] = "(" + completeTranslate[cgp_program[base]] + " " + cgp_program[base + 2] + " " + completeTranslate[
+            cgp_program[base + 1]] + ")"
+
+    return completeTranslate
+
 
 def calculate_input(cgp_program, input_id, inputs, nr_features):
     """
