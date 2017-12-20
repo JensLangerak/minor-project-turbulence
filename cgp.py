@@ -27,6 +27,7 @@ node_size = 3  # How many numbers are needed for one node. Two for the input and
 outputs = 2  # Number of outputs that should be returned.
 operations = 3  # Number of supported operations.
 
+operation_list = ['+', '-', '*', '/']  # What if division by zero?
 
 def translate(nr_features, chromosome):
     """
@@ -36,7 +37,6 @@ def translate(nr_features, chromosome):
     :return: A list representation of a cartesian genetic program.
     """
     nr_nodes = math.floor(len(chromosome) / node_size)
-    operation_list = ['+', '-', '*', '/']  # What if division by zero?
 
     translated_list= [0] * len(chromosome) # Create new list in advance (is faster than with append)
     for i in range(nr_nodes):  # Turns numbers into the right numbers/operation
@@ -46,6 +46,15 @@ def translate(nr_features, chromosome):
 
         translated_list[node_size*i+2] = operation_list[chromosome[node_size*i+2] % operations]  # operaion
     return translated_list
+
+
+def translate_item(nr_features, item_index, item_value):
+    node_index = math.floor(item_index / node_size)
+    sub_index = item_index - node_size * node_index
+    if sub_index == 2:
+        return operation_list[item_value % operations]
+    else:
+        return item_value % (nr_features + node_index)
 
 
 def cgp(features, chromosome):  #function that interpretes solution in terms of features -> returns two outputs
@@ -70,8 +79,8 @@ def cgp(features, chromosome):  #function that interpretes solution in terms of 
     for i in range(nr_features):
         inputs[i] = features[i]  # Copy the features into the input list.
 
-    translated_list = translate(nr_features, chromosome) # translate the chomoso\mne into a cgp program.
-
+    #translated_list = translate(nr_features, chromosome) # translate the chomoso\mne into a cgp program.
+    translated_list = chromosome
     # get outputs number of outputs. The first output is the last node, the second output is the second-last node etc.
     result = []
     for i in range(1, outputs + 1):
@@ -120,6 +129,7 @@ def calculate_input(cgp_program, input_id, inputs, nr_features):
     elif o =='*':
         output = a*b
     else: # not yet used
+        print(o)
         if (b == 0) :
             output=a/sqrt((1+b**2)) #safe division
         output = a/b
