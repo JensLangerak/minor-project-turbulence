@@ -121,13 +121,58 @@ def calculate_input(cgp_program, input_id, inputs, nr_features):
         output = a*b
     else: # not yet used
         if (b == 0) :
-            raise ZeroDivisionError()
+            output=a/sqrt((1+b**2)) #safe division
         output = a/b
 
     # Store the output in the inputs list.
     inputs[input_id] = output
     return output
 
+#nr_features = len(features)
+#lst=translate(nr_features, chromosome)
+#length=len(lst)
+#nrnodes=length/node_size
+#nodelist=nrnodes*[0]
+#output1ref=nrnodes-2
+#output2ref=nrnodes-1
+
+    
+def nodes_used(outputref, nodelist,lst):
+    if nodelist[outputref]==1:
+        return 
+    nodelist[outputref]=1
+    inputs=[lst[node_size*(outputref-1)], lst[node_size*(outputref-1)+1]]
+    nodelist[inputs[0]-1]=1
+    nodelist[inputs[1]-1]=1
+    nodes_used(inputs[0]-1,nodelist, testsol)
+    nodes_used(inputs[1]-1,nodelist, testsol)
+    return nodelist
+    
+#test
+testsol=[1,1,'*',1,1,'+', 2,2,'+', 1, 3, '*',1,3,'*',2,3,'+', 1,2,'+', 1, 1, '*']
+length=len(testsol)
+nrnodes=int(length/node_size)
+nodelist=nrnodes*[0]
+output1ref=nrnodes-2
+output2ref=nrnodes-1
+
+nodelisttest1=nodes_used(output1ref, nodelist, testsol)
+nodelisttest2=nodes_used(output2ref, nodelisttest1, testsol)
+
+#turn nodelist into list size of solution:
+newlist=nrnodes*node_size*[0]
+for i in range(nrnodes):
+    if nodelisttest2[i]==1:
+        newlist[node_size*i]=1
+        newlist[node_size*i+1]=1
+        newlist[node_size*i+2]=1
+
+print (nodelisttest2)
+print (newlist) #list with 0 in nodes that are not used for output, 1 in nodes that are used in output
+
+    
+            
+        
 
 #main program
 
