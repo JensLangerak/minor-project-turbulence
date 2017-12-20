@@ -27,7 +27,7 @@ node_size = 3  # How many numbers are needed for one node. Two for the input and
 outputs = 2  # Number of outputs that should be returned.
 operations = 3  # Number of supported operations.
 
-operation_list = ['+', '-', '*', '/']  # What if division by zero?
+operation_list = ['+', '-', '*', '/']
 
 def translate(nr_features, chromosome):
     """
@@ -128,7 +128,7 @@ def calculate_input(cgp_program, input_id, inputs, nr_features):
         output = a-b
     elif o =='*':
         output = a*b
-    else: # not yet used
+    else: 
         print(o)
         if (b == 0) :
             output=a/sqrt((1+b**2)) #safe division
@@ -148,39 +148,56 @@ def calculate_input(cgp_program, input_id, inputs, nr_features):
 
     
 def nodes_used(outputref, nodelist,lst):
+    if outputref< nr_features :
+        return nodelist
+    outputref-=nr_features
+    #print(outputref)
     if nodelist[outputref]==1:
-        return 
+        return nodelist
     nodelist[outputref]=1
-    inputs=[lst[node_size*(outputref-1)], lst[node_size*(outputref-1)+1]]
-    nodelist[inputs[0]-1]=1
-    nodelist[inputs[1]-1]=1
-    nodes_used(inputs[0]-1,nodelist, testsol)
-    nodes_used(inputs[1]-1,nodelist, testsol)
+    #print(lst)
+    inputs=[lst[node_size*(outputref)], lst[node_size*(outputref)+1]]
+    #print("inputs")
+    #print(inputs)
+    nodes_used(inputs[0],nodelist, lst)
+    nodes_used(inputs[1],nodelist, lst)
     return nodelist
     
 #test
-testsol=[1,1,'*',1,1,'+', 2,2,'+', 1, 3, '*',1,3,'*',2,3,'+', 1,2,'+', 1, 1, '*']
-length=len(testsol)
-nrnodes=int(length/node_size)
-nodelist=nrnodes*[0]
-output1ref=nrnodes-2
-output2ref=nrnodes-1
+#sol=[1,1,'*',1,1,'+', 2,2,'+', 1, 2, '*',1,4,'*',2,4,'/', 5,2,'+', 1, 1, '*'] #should result in [1,0,0,1,0,0,1,1]
+#sol=[1, 3, '-', 2, 2, '+', 1, 0, '+', 3, 1, '*', 5, 0, '-', 1, 4, '+', 5, 7, '-', 7, 4, '+', 7, 7, '-', 7, 12, '+', 13, 2, '-', 6, 12, '-', 3, 15, '-', 12, 13, '*', 17, 4, '-', 14, 12, '-', 19, 8, '*', 11, 5, '-', 12, 19, '-', 10, 5, '+']
 
-nodelisttest1=nodes_used(output1ref, nodelist, testsol)
-nodelisttest2=nodes_used(output2ref, nodelisttest1, testsol)
 
-#turn nodelist into list size of solution:
-newlist=nrnodes*node_size*[0]
-for i in range(nrnodes):
-    if nodelisttest2[i]==1:
-        newlist[node_size*i]=1
-        newlist[node_size*i+1]=1
-        newlist[node_size*i+2]=1
+nr_features=4
 
-print (nodelisttest2)
-print (newlist) #list with 0 in nodes that are not used for output, 1 in nodes that are used in output
+def createListnodes(sol, nr_features):
+    #print("sol")
+    #print(sol)
+    length=len(sol)
+    nrnodes=int(length/node_size)
+    nodelist=nrnodes*[0]
+    output1ref=nrnodes-2
+    output2ref=nrnodes-1
+    onlynodes=nodes_used(output1ref+nr_features, nodelist, sol)
+    solution=nodes_used(output2ref+nr_features, onlynodes, sol)
+    #print("Tes")
+    #print (solution)
+    #turn nodelist into list size of solution:
+    newlist=nrnodes*node_size*[0]
+    for i in range(nrnodes):
+        if solution[i] is None:
+            print ('testing')
+            print (sol)
+        if solution[i]==1:
+            for j in range(node_size):
+                newlist[node_size*i]=1
+                newlist[node_size*i+j]=1
+                newlist[node_size*i+j]=1  
+    return newlist
 
-    
+
+#createListnodes(sol, nr_features)
+
             
         
 

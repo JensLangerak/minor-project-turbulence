@@ -45,7 +45,24 @@ def diversity(population):
     :param population: A list of chromosomes
     :return: A diversity score for the given population.
     """
-    return 1
+    dim = np.shape(population)  
+    k = 0    
+    for j in range(dim[0]):
+        if (population[j] is None):
+            print(j + " " + population[j])
+        zerosoneslist=createListnodes(population[j],nr_features)
+        for k in range(dim[1]):
+            if type(population[j][k]) is int:
+                #print(k)
+                population[j][k]*=zerosoneslist[k]
+        symbols = 100 * [0]    
+        # For each position count the number of different symbols.    
+        for i in range(dim[0]):    
+            if type(population[i][j]) is int and symbols[population[i][j]] == 0:    
+                k += 1    
+                symbols[population[i][j]] = 1    
+    return k / dim[1] / population_size  
+
 
 
 def average(fitness_list):
