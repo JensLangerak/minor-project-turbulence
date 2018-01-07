@@ -22,7 +22,7 @@ The output are the outputs of the last #outputs (currently 2) nodes.
 """
 
 import math
-
+import numpy as np
 node_size = 3  # How many numbers are needed for one node. Two for the input and one to determine the operation.
 outputs = 2  # Number of outputs that should be returned.
 operations = 3  # Number of supported operations.
@@ -194,6 +194,34 @@ def createListnodes(sol, nr_features):
                 newlist[node_size*i+j]=1
                 newlist[node_size*i+j]=1  
     return newlist
+
+def complete_translate(cgp_program, nr_features, nr_nodes):
+    completeTranslate = (nr_features + nr_nodes) * [""]
+    for i in range(nr_features):
+        completeTranslate[i] = "f_g[offset+" + str(i) + "]"
+
+    for n in range(nr_nodes):
+        base = n * node_size
+        d = n + nr_features
+        completeTranslate[d] = "(" + completeTranslate[cgp_program[base]] + " " + cgp_program[base + 2] + " " + \
+                               completeTranslate[cgp_program[base + 1]] + ")"
+
+    return completeTranslate
+
+def complete_translate2(cgp_program):
+    res = np.empty_like(cgp_program)
+    for i in range(len(cgp_program)):
+        k = cgp_program[i]
+        if k == '+':
+            k = 0
+        if k == '-':
+            k = 1
+        if k == '*':
+            k = 2
+        res[i] = k
+    return res
+
+
 
 
 #createListnodes(sol, nr_features)
