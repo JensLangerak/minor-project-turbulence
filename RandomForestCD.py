@@ -1,7 +1,15 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Dec 22 11:30:30 2017
+
+@author: thomas
+"""
+
 from __future__ import division
 import numpy as np
 import matplotlib.pyplot as plt
-import openFOAMSD as foam
+import openFOAMPH as foam
 import os
 import sys
 sys.path.append("..")
@@ -21,6 +29,9 @@ def RANS(case, Re, TurbModel, time_end, nx, ny):
         dir_RANS = dir_RANS + '_50'
         if Re > 2000:
             time_end = 50000
+            
+    if case == 'ConvergingDivergingChannel':
+        dir_RANS = dir_RANS + '_100'
         
     mesh_list  = foam.getRANSVector(dir_RANS, time_end, 'cellCentres')
     mesh      = foam.getRANSPlane(mesh_list,'2D', nx, ny, 'vector')
@@ -192,11 +203,20 @@ def response(case, Re, TurbModel, time_end, nx, ny, train):
         print('train = true')
         Y = np.zeros((nx*len(Re)*ny, 6))
         for i in range(len(Re)):
-            dataset = ('MinorCSE/SquareDuct/DATA/0%i_full.csv' % Re[i])
+            if case == 'PeriodicHills':
+                dataset = home + ('%s' % (case)) + '/' + ('DATA_CASE_LES_BREUER') + '/' + ('Re_%i' % Re[i]) + '/' + ('Hill_Re_%i_Breuer.csv' % Re[i])
+            if case == 'SquareDuct':
+                dataset = ('MinorCSE/SquareDuct/DATA/0%i_full.csv' % Re[i])
+            if case == 'ConvergingDivergingChannel':
+                dataset = ('MinorCSE/ConvergingDivergingChannel/DATA/conv-div-mean-half.dat')
+                
             meshRANS, U_RANS, gradU_RANS, p_RANS, gradp_RANS, tau_RANS, k_RANS, gradk_RANS, yWall_RANS, omega_RANS, S_RANS, Omega_RANS = RANS(case, Re[i], TurbModel, time_end, nx, ny)
 
-            dataDNS = foam.loadData_avg(dataset)
-            dataDNS_i = foam.interpDNSOnRANS(dataDNS, meshRANS)
+            dataDNS = foam.loadData_avg(case, dataset)
+            print(np.shape(dataDNS))
+            print()
+            print(np.shape(meshRANS))
+            dataDNS_i = foam.interpDNSOnRANS(case, dataDNS, meshRANS)
             dataDNS_i['k'] = 0.5 * (dataDNS_i['uu'] + dataDNS_i['vv'] + dataDNS_i['ww'])
 
             l1 = np.shape(U_RANS)[1]
@@ -248,11 +268,17 @@ def response(case, Re, TurbModel, time_end, nx, ny, train):
     else:
         print('train = false')
         for i in range(len(Re)):
-            dataset = ('MinorCSE/SquareDuct/DATA/0%i_full.csv' % Re[i])
+            if case == 'PeriodicHills':
+                dataset = home + ('%s' % (case)) + '/' + ('DATA_CASE_LES_BREUER') + '/' + ('Re_%i' % Re[i]) + '/' + ('Hill_Re_%i_Breuer.csv' % Re[i])
+            if case == 'SquareDuct':
+                dataset = ('MinorCSE/SquareDuct/DATA/0%i_full.csv' % Re[i])
+            if case == 'ConvergingDivergingChannel':
+                dataset = ('MinorCSE/ConvergingDivergingChannel/DATA/conv-div-mean-half.dat')
+                
             meshRANS, U_RANS, gradU_RANS, p_RANS, gradp_RANS, tau_RANS, k_RANS, gradk_RANS, yWall_RANS, omega_RANS, S_RANS, Omega_RANS = RANS(case, Re[i], TurbModel, time_end, nx, ny)
 
-            dataDNS = foam.loadData_avg(dataset)
-            dataDNS_i = foam.interpDNSOnRANS(dataDNS, meshRANS)
+            dataDNS = foam.loadData_avg(case, dataset)
+            dataDNS_i = foam.interpDNSOnRANS(case, dataDNS, meshRANS)
             dataDNS_i['k'] = 0.5 * (dataDNS_i['uu'] + dataDNS_i['vv'] + dataDNS_i['ww'])
 
             l1 = np.shape(U_RANS)[1]
@@ -277,23 +303,29 @@ def response(case, Re, TurbModel, time_end, nx, ny, train):
 
         
             eigVal_DNS = foam.calcEigenvalues(ReStress_DNS, dataDNS_i['k'])
+            print(np.shape(eigVal_DNS))
             baryMap_DNS = foam.barycentricMap(eigVal_DNS)
-
+            print(np.shape(baryMap_DNS))
 
             eigVal_RANS = foam.calcEigenvalues(tau_RANS, dataRANS_k)
             baryMap_RANS = foam.barycentricMap(eigVal_RANS)
+            print(np.shape(baryMap_RANS))
             baryMap_discr = foam.baryMap_discr(baryMap_RANS, baryMap_DNS)
+            print(np.shape(baryMap_discr))
+            print('return bary')
             return baryMap_RANS, baryMap_DNS, baryMap_discr
         
-case = 'SquareDuct'
-Re = [1800, 2000, 2200, 2400, 2600, 2900, 3200, 3500] 
-Re_train = np.delete(Re, 2)
-TurbModel = 'kOmega'
+case = 'ConvergingDivergingChannel'
+Re = [12600] 
+Re_train = Re
 
-X_train = features('SquareDuct', Re_train, TurbModel='kOmega', time_end=40000, nx=50, ny=50)
 
-Y_train = response('SquareDuct', Re_train, TurbModel='kOmega', time_end=40000, nx=50, ny=50, train = True)
+X_train = features('ConvergingDivergingChannel', Re_train, TurbModel='kOmega', time_end=7000, nx=140, ny=100)
 
+
+Y_train = response('ConvergingDivergingChannel', Re_train, TurbModel='kOmega', time_end=7000, nx=140, ny=100, train = True)
+
+'''
 regr = RandomForestRegressor(n_estimators=10, criterion='mse', max_depth=None, min_samples_split=2, min_samples_leaf=1, 
     min_weight_fraction_leaf=0.0, max_features='auto', max_leaf_nodes=None, min_impurity_decrease=0.0, 
     min_impurity_split=None, bootstrap=True, oob_score=False, n_jobs=-1, random_state=None, 
@@ -365,7 +397,7 @@ plt.plot([0,1,0.5,0],[0,0,np.sin(60*(np.pi/180)),0],'k-')
 plt.axis('equal')
 plt.show()
 
-'''
+
 plt.figure()
 plt.title("Velocity from DNS")
 plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], dataDNS_i['um'],20)

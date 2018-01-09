@@ -1,7 +1,7 @@
 from __future__ import division
 import numpy as np
 import matplotlib.pyplot as plt
-import openFOAM as foam
+import openFOAMPH as foam
 import os
 import sys
 sys.path.append("..")
@@ -191,11 +191,15 @@ def response(case, Re, TurbModel, time_end, nx, ny, train):
         print('train = true')
         Y = np.zeros((nx*len(Re)*ny, 6))
         for i in range(len(Re)):
-            dataset = home + ('%s' % (case)) + '/' + ('DATA_CASE_LES_BREUER') + '/' + ('Re_%i' % Re[i]) + '/' + ('Hill_Re_%i_Breuer.csv' % Re[i])
+            if case == 'PeriodicHills':
+                dataset = home + ('%s' % (case)) + '/' + ('DATA_CASE_LES_BREUER') + '/' + ('Re_%i' % Re[i]) + '/' + ('Hill_Re_%i_Breuer.csv' % Re[i])
+            if case == 'SquareDuct':
+                dataset = ('MinorCSE/SquareDuct/DATA/0%i_full.csv' % Re[i])
+            
             meshRANS, U_RANS, gradU_RANS, p_RANS, gradp_RANS, tau_RANS, k_RANS, gradk_RANS, yWall_RANS, omega_RANS, S_RANS, Omega_RANS = RANS(case, Re[i], TurbModel, time_end, nx, ny)
 
-            dataDNS = foam.loadData_avg(dataset)
-            dataDNS_i = foam.interpDNSOnRANS(dataDNS, meshRANS)
+            dataDNS = foam.loadData_avg(case, dataset)
+            dataDNS_i = foam.interpDNSOnRANS(case, dataDNS, meshRANS)
             dataDNS_i['k'] = 0.5 * (dataDNS_i['uu'] + dataDNS_i['vv'] + dataDNS_i['ww'])
 
             l1 = np.shape(U_RANS)[1]
@@ -247,11 +251,15 @@ def response(case, Re, TurbModel, time_end, nx, ny, train):
     else:
         print('train = false')
         for i in range(len(Re)):
-            dataset = home + ('%s' % (case)) + '/' + ('DATA_CASE_LES_BREUER') + '/' + ('Re_%i' % Re[i]) + '/' + ('Hill_Re_%i_Breuer.csv' % Re[i])
+            if case == 'PeriodicHills':
+                dataset = home + ('%s' % (case)) + '/' + ('DATA_CASE_LES_BREUER') + '/' + ('Re_%i' % Re[i]) + '/' + ('Hill_Re_%i_Breuer.csv' % Re[i])
+            if case == 'SquareDuct':
+                dataset = ('MinorCSE/SquareDuct/DATA/0%i_full.csv' % Re[i])
+                
             meshRANS, U_RANS, gradU_RANS, p_RANS, gradp_RANS, tau_RANS, k_RANS, gradk_RANS, yWall_RANS, omega_RANS, S_RANS, Omega_RANS = RANS(case, Re[i], TurbModel, time_end, nx, ny)
 
-            dataDNS = foam.loadData_avg(dataset)
-            dataDNS_i = foam.interpDNSOnRANS(dataDNS, meshRANS)
+            dataDNS = foam.loadData_avg(case, dataset)
+            dataDNS_i = foam.interpDNSOnRANS(case, dataDNS, meshRANS)
             dataDNS_i['k'] = 0.5 * (dataDNS_i['uu'] + dataDNS_i['vv'] + dataDNS_i['ww'])
 
             l1 = np.shape(U_RANS)[1]
@@ -293,7 +301,7 @@ def response(case, Re, TurbModel, time_end, nx, ny, train):
 ##################################################################################################################
 ######################################### Random forest ##########################################################
 ##################################################################################################################
-'''
+
 case = 'PeriodicHills'
 
 # Training
@@ -309,7 +317,8 @@ Re_train = np.delete(Re, 2)
 TurbModel = 'kOmega'
 f = features(case, Re_train, TurbModel='kOmega', time_end=40000, nx=150, ny=150)
 X_train = features('SquareDuct', Re_train, TurbModel='kOmega', time_end=40000, nx=150, ny=150)
-'''case = 'ConvergingDivergingChannel'
+
+case = 'ConvergingDivergingChannel'
 Re = [12600]
 TurbModel = ='kOmega'
 dir_RANS  = home + ('%s' % case) + '/' + ('Re%i_%s_100' % (Re,TurbModel))
@@ -317,7 +326,7 @@ f = features(Re, TurbModel='kOmega', time_end=7000, nx=140, ny=100)
 '''                                        
 
 
-Y_train = response('SquareDuct', Re_train, TurbModel='kOmega', time_end=40000, nx=150, ny=150, train = True)
+Y_train = response('PeriodicHills', Re_train, TurbModel='kOmega', time_end=30000, nx=140, ny=150, train = True)
 
 regr = RandomForestRegressor(n_estimators=10, criterion='mse', max_depth=None, min_samples_split=2, min_samples_leaf=1, 
     min_weight_fraction_leaf=0.0, max_features='auto', max_leaf_nodes=None, min_impurity_decrease=0.0, 
@@ -332,11 +341,11 @@ print("Feature importance :", regr.feature_importances_)
 Re_test = [Re[0]]
 print(Re_test)
 
-test_X = features('SquareDuct', Re_test, TurbModel='kOmega', time_end=40000, nx=150, ny=150)
+test_X = features('PeriodicHills', Re_test, TurbModel='kOmega', time_end=30000, nx=140, ny=150)
 test_discr = regr.predict(test_X)
-test_discr = np.reshape(test_discr.swapaxes(1,0), (6, 150, 150))
+test_discr = np.reshape(test_discr.swapaxes(1,0), (6, 140, 150))
 
-baryMap_RANS, baryMap_DNS, baryMap_discr = response('SquareDuct', Re_test, TurbModel='kOmega', time_end=40000, nx=150, ny=150, train = False)
+baryMap_RANS, baryMap_DNS, baryMap_discr = response('PeriodicHills', Re_test, TurbModel='kOmega', time_end=30000, nx=140, ny=150, train = False)
 
 
 # Plots
