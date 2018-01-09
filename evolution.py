@@ -18,15 +18,15 @@ import matplotlib.animation as animation
 from matplotlib import style
 import time
 
-half_population = 200  # 0.5 * the number of chromosomes in a single generation
-nr_nodes = 20  # number of nodes in the chromosomes
+half_population = 250  # 0.5 * the number of chromosomes in a single generation
+nr_nodes = 50  # number of nodes in the chromosomes
 node_size = 3  # size of a node in the chromosome
-mutation_chance = 0.10 # (0-1) chance that an element gets a random value.
-max_error = 0.0001  # stop when error is smaller than this value.
+mutation_chance = 0.02 # (0-1) chance that an element gets a random value.
+max_error = 700000000  # stop when error is smaller than this value.
 
 
-population_size = 2 * half_population# + 1 # total population size, +1 for the best previous solution
-
+population_size = 2 * half_population #+ 1 # total population size, +1 for the best previous solution
+nr_features = 4 #TODO
 def calculate_fitness(calculated, reference):
     """
     Calculate the fitness score. It compare the calculated to the desired value (reference).
@@ -36,7 +36,7 @@ def calculate_fitness(calculated, reference):
     """
     a = calculated[0] - reference[0]
     b = a  # calculated[1] - reference[1]
-    return  math.sqrt(a * a + b * b)
+    return math.sqrt(a * a + b * b)
 
 
 def diversity(population):
@@ -45,23 +45,23 @@ def diversity(population):
     :param population: A list of chromosomes
     :return: A diversity score for the given population.
     """
-  #  dim = np.shape(population)
-  #  k = 0
-  #  for j in range(dim[0]):
-  #      if (population[j] is None):
-  #          print(j + " " + population[j])
-  #      zerosoneslist=createListnodes(population[j],nr_features)
-  #      for k in range(dim[1]):
-  #          if type(population[j][k]) is int:
-  #              #print(k)
-  #              population[j][k]*=zerosoneslist[k]
-  #      symbols = 100 * [0]
-  #      # For each position count the number of different symbols.
-  #      for i in range(dim[#]):
-  #          if type(population[i][j]) is int and symbols[population[i][j]] == 0:
-  #              k += 1
-  #              symbols[population[i][j]] = 1
-    return 0 #k / dim[1] / population_size
+    dim = np.shape(population)
+    k = 0
+    for j in range(dim[0]):
+        if (population[j] is None):
+            print(j + " " + population[j])
+        zerosoneslist=createListnodes(population[j],nr_features)
+        for k in range(dim[1]):
+            if type(population[j][k]) is int:
+                #print(k)
+                population[j][k]*=zerosoneslist[k]
+        symbols = 100 * [0]
+        # For each position count the number of different symbols.
+        for i in range(dim[0]):
+            if type(population[i][j]) is int and symbols[population[i][j]] == 0:
+                k += 1
+                symbols[population[i][j]] = 1
+    return k / dim[1] / population_size
 
 
 
@@ -77,10 +77,7 @@ def average(fitness_list):
     return total / population_size
 
 
-nr_features = 4
-
-
-def create_base_population(size):
+def create_base_population(size, random_range):
     """
     Create a base population of size number of chromosomes.
     :param size: Number of chromosomes that should be created.
@@ -88,8 +85,7 @@ def create_base_population(size):
     """
     population = size * [None]
     for i in range(size):
-        # TODO replace 50 with something not hardcoded.
-        population[i] = translate(nr_features, np.random.randint(0, 99, nr_nodes * node_size))
+        population[i] = translate(nr_features, np.random.randint(0, random_range, nr_nodes * node_size))
     return population
 
 
@@ -115,8 +111,8 @@ def test_population(population, features, reference):
 
 def get_index():
     index = population_size
-    while (index > population_size - 1):
-        index = math.floor(abs(random.normalvariate(0, 0.35 * half_population)))
+    while index > population_size - 1:
+        index = math.floor(abs(random.normalvariate(0, 0.3 * half_population)))
     return index
 
 
@@ -138,9 +134,6 @@ def create_next_generation(fitness_list, population, best_solution):
     next_generation = population_size * [None]
     for i in range(half_population):
         # select parents
-      #  parent_id_1 = crossover_selection_list[random.randint(0, len(crossover_selection_list) - 1)]
-      #  parent_id_2 = crossover_selection_list[random.randint(0, len(crossover_selection_list) - 1)]
-
         parent_id_1 = get_index()
         parent_id_2 = get_index()
 
@@ -173,37 +166,25 @@ def create_next_generation(fitness_list, population, best_solution):
         next_generation[2 * i + 1] = child_2
 
     # add best solution to the next generation
- #   next_generation[population_size - 1] = best_solution
+    #next_generation[population_size - 1] = best_solution
     return next_generation
 
+class OpenCLExecutor:
+    def __init__(self, features, reference):
+        self.nr_points = len(features)
+        self.f_np = np.asarray(features, dtype=np.float32)
+        self.r_np = np.asarray(reference, dtype=np.float32)
+        self.ctx = cl.create_some_context(interactive=True)
+        self.queue = cl.CommandQueue(self.ctx)
+        self.mf = cl.mem_flags
+        self.f_g = cl.Buffer(self.ctx, self.mf.READ_ONLY | self.mf.COPY_HOST_PTR, hostbuf=self.f_np)
+        self.r_g = cl.Buffer(self.ctx, self.mf.READ_ONLY | self.mf.COPY_HOST_PTR, hostbuf=self.r_np)
+        self.res_np = np.empty(self.nr_points, dtype=np.float32)
+        self.res_g = cl.Buffer(self.ctx, self.mf.WRITE_ONLY, self.res_np.nbytes)
 
-def evolve(features, reference):
-    """
-    Use an evolutionary strategy to find a solutions that can derive the reference (training data) from features.
-    :param features: The input data for the model.
-    :param reference: The reference data.
-    :return: The best found chromosome.
-    """
-    population = create_base_population(population_size)
-    smallest_error = -1
-    best_solution = population[0]  # best seen solution
-
-    f_np = np.asarray(features, dtype=np.float32)
-    r_np = np.asarray(reference, dtype=np.float32)
-
-    ctx = cl.create_some_context(interactive=True)
-    queue = cl.CommandQueue(ctx)
-    mf = cl.mem_flags
-
-    f_g = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=f_np)
-    r_g = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=r_np)
-    res_g = cl.Buffer(ctx, mf.WRITE_ONLY, r_np.nbytes)
-    res2_g = cl.Buffer(ctx, mf.WRITE_ONLY, r_np.nbytes)
-    res_np = np.empty_like(r_np)
-    res2_np = np.empty_like(r_np)
-
-    program2=    """
-            __kernel void calculate2(
+        #TODO load from file
+        self.program = cl.Program(self.ctx, """
+            __kernel void calculate(
             __global const float *r_g, __global const float *f_g, __global float *res_g, __global int *program)
         {
           int nr_features = """ + str(nr_features) + """;
@@ -227,53 +208,116 @@ def evolve(features, reference):
                   inputs[i + nr_features] = i1 - i2;
               if(op == 2)
                   inputs[i + nr_features] = i1 * i2;
-
+              if(op == 3) {
+                float safe_offset = (i2 > 0) ? 0.00001 : -0.00001;
+                inputs[i + nr_features] = i1 / (i2 + safe_offset);    
+              }                  
           }
-          float result= inputs[nr_features + nr_nodes -1];
-          res_g[2 * gid] = result;
-          result = result - r_g[gid * 2];
-          result = sqrt(result * result * 2);
-          res_g[2 * gid + 1] = result;
+          float result1= inputs[nr_features + nr_nodes -1] - r_g[2 * gid];
+          float result2= inputs[nr_features + nr_nodes -2] - r_g[2 * gid + 1];
+          result1 = (result1 < 0) ? result1 * -1 : result1;
+                    result2 = (result2 < 0) ? result2 * -1 : result2;
+          result1 = 1 / (0.01 + result1);
+          result2 = 1 / (0.01 + result2);
+          //float result = sqrt(result1 * result1 + result2 * result2);
+          res_g[gid] = result1 + result2;
         }
-        """
-    prg2 = cl.Program(ctx, program2).build()
-    # Simulate the generations in the evolution process.
-    for g in range(5000):
-        # check if done
-        if smallest_error != -1 and smallest_error < max_error:
-            break
+        """).build()
 
+
+        self.program2 = cl.Program(self.ctx, """
+            __kernel void predict(
+           __global const float *f_g, __global float *res_g, __global int *program)
+        {
+          int nr_features = """ + str(nr_features) + """;
+          int nr_nodes = """ + str(nr_nodes) + """;
+          int gid = get_global_id(0);
+          int offset = gid * """ + str(nr_features) + """;
+          float inputs["""+str(nr_features + nr_nodes)+"""] ;
+          for (int i = 0; i < nr_features; i++) {
+              inputs[i] = f_g[offset + i];
+          }
+
+          for (int i = 0; i < nr_nodes; i++) {
+              int id1 = program[i * 3];
+              int id2 = program[i * 3 + 1];
+              int op  = program[i * 3 + 2];
+              float i1 = inputs[id1];
+              float i2 = inputs[id2];
+              if(op == 0)
+                  inputs[i + nr_features] = i1 + i2;
+              if(op == 1)
+                  inputs[i + nr_features] = i1 - i2;
+              if(op == 2)
+                  inputs[i + nr_features] = i1 * i2;
+              if(op == 3) {
+                float safe_offset = (i2 > 0) ? 0.00001 : -0.00001;
+                inputs[i + nr_features] = i1 / (i2 + safe_offset);    
+              }                  
+          }
+          res_g[gid * 2] =  inputs[nr_features + nr_nodes -1];
+          res_g[gid * 2 + 2] = inputs[nr_features + nr_nodes -2];
+        }
+        """).build()
+
+    def execute(self, population):
         fitness_list = population_size * [None]
 
         for i in range(population_size):
-            t = complete_translate(population[i], nr_features, nr_nodes)
-            t2 = np.asarray(complete_translate2(population[i]), dtype=np.int32)
-#            program = """
-#                    __kernel void calculate(
-#            __global const float *r_g, __global const float *f_g, __global float *res_g)
-#        {
-#          int gid = get_global_id(0);
-#          int offset = gid * """ + str(nr_features) + """;
-#          float result= """ + t[nr_nodes - 1 + nr_features] + """;
-#          res_g[gid * 2] = result;
-#          result = result - r_g[gid * 2];
-#          result = sqrt(result * result * 2);
-#          res_g[gid * 2 + 1] = result;
-#        }
-#                    """
-#            prg = cl.Program(ctx, program).build()
-#            prg.calculate(queue, res_np.shape, None, r_g, f_g, res_g)
-#            cl.enqueue_copy(queue, res_np, res_g)
-#
-            p_g = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=t2)
-            prg2.calculate2(queue, res2_np.shape, None, r_g, f_g, res2_g, p_g)
-            cl.enqueue_copy(queue, res2_np, res2_g)
+            t2 = np.asarray(complete_translate_to_ints(population[i]), dtype=np.int32)
 
-            fitness_list[i] = (i, res2_np[:, 1].sum() / len(features))
+            p_g = cl.Buffer(self.ctx, self.mf.READ_ONLY | self.mf.COPY_HOST_PTR, hostbuf=t2)
+            self.program.calculate(self.queue, self.res_np.shape, None, self.r_g, self.f_g, self.res_g, p_g)
+            cl.enqueue_copy(self.queue, self.res_np, self.res_g)
+
+            fitness_list[i] = (i, self.res_np.sum())
+        return fitness_list
+
+    def predict(self, solution, features):
+        res2_np = np.empty((len(features), 2))
+        res2_g = cl.Buffer(self.ctx, self.mf.WRITE_ONLY, res2_np.nbytes)
+
+        t2 = np.asarray(complete_translate_to_ints(solution), dtype=np.int32)
+
+        p_g = cl.Buffer(self.ctx, self.mf.READ_ONLY | self.mf.COPY_HOST_PTR, hostbuf=t2)
+
+        f2_np = np.asarray(features, dtype=np.float32)
+        f2_g = cl.Buffer(self.ctx, self.mf.READ_ONLY | self.mf.COPY_HOST_PTR, hostbuf=f2_np)
+        self.program2.predict(self.queue, res2_np.shape, None, f2_g, res2_g, p_g)
+
+        cl.enqueue_copy(self.queue, res2_np, res2_g)
+        return  res2_np
+
+
+def predict(solution, features, reference): #TODO
+    openCLExecutor = OpenCLExecutor(features, reference)
+    return openCLExecutor.predict(solution, features)
+
+
+def evolve(features, reference):#
+    """
+    Use an evolutionary strategy to find a solutions that can derive the reference (training data) from features.
+    :param features: The input data for the model.
+    :param reference: The reference data.
+    :return: The best found chromosome.
+    """
+    dim_features= np.shape(features)
+    population = create_base_population(population_size, nr_nodes + dim_features[1])
+    smallest_error = -1
+    best_solution = population[0]  # best seen solution
+
+    openCLExecutor = OpenCLExecutor(features, reference)
+    # Simulate the generations in the evolution process.
+    for g in range(300):
+        # check if done
+        if smallest_error != -1 and smallest_error > max_error:
+            break
+
+        fitness_list = openCLExecutor.execute(population)
      #   fitness_list = test_population(population, features, reference)
-        fitness_list.sort(key=lambda i: i[1])  # sort the tuples on the second element, thus the fitness score
+        fitness_list.sort(key=lambda i: i[1], reverse=True)  # sort the tuples on the second element, thus the fitness score
         # Check if a new best solution has been found.
-        if smallest_error == -1 or fitness_list[0][1] < smallest_error:
+        if smallest_error == -1 or fitness_list[0][1] > smallest_error:
                 best_solution = population[fitness_list[0][0]]  # store the best solution
                 smallest_error = fitness_list[0][1]  # store the error
 
@@ -282,38 +326,37 @@ def evolve(features, reference):
                 print (smallest_error)
 
                 # check if it can stop
-                if smallest_error < max_error:
+                if smallest_error > max_error:
                     print("Done")
                     break
 
-        xs.append(g)
-
-        interval = math.floor(population_size / len(ys))
-
-        for i in range(len(ys)):
-            ys[i].append(1 / fitness_list[interval * i][1])
-        tick()
+      #  if (g % 5 == 0) :
+      #      xs.append(g)
+      #      interval = math.floor(population_size / len(ys))
+      #      for i in range(len(ys)):
+      #          ys[i].append(fitness_list[interval * i][1])
+      #      tick()
         print("Generation ", g, ", smallest error: ", fitness_list[0][1], ", error median: ",
-              fitness_list[half_population][1], ", diversity: ", diversity(population))
+              fitness_list[half_population][1], ", diversity: ", "") #diversity(population))
 
         population = create_next_generation(fitness_list, population, best_solution)
     return best_solution
 
-xs = []
-ys = []
-for i in range(10):
-    ys.append([])
-ax = []
-fig = plt.figure()
-plt.interactive(False)
-print(ys)
-for i in range(len(ys)):
-    ax.append(fig.add_subplot(111))
-plt.ion()
-
-
-fig.show()
-fig.canvas.draw()
+#xs = []
+#ys = []
+#for i in range(10):
+#    ys.append([])
+#ax = []
+#fig = plt.figure()
+#plt.interactive(False)
+#print(ys)
+#for i in range(len(ys)):
+#    ax.append(fig.add_subplot(111))
+#plt.ion()
+#
+#
+#fig.show()
+#fig.canvas.draw()
 
 
 def tick():
@@ -328,6 +371,7 @@ def tick():
 """
 Generate test data
 """
+'''
 ref = []
 f = []
 for x in range(1, 20, 1):
@@ -335,7 +379,8 @@ for x in range(1, 20, 1):
         for z in range(1, 20, 1):
             for u in range(1, 20, 1):
                 f += [[x, y, z, u]]
-                res = 2 * x - 3 * y + 4 * z - u * x
+                #res = 2 * x - 3 * y + 4 * z - u * x
+                res = x / y
                 ref += [[res, res]]
 
 
@@ -361,3 +406,4 @@ for n in range(nr_nodes):
     completeTranslate[d] = "(" + completeTranslate[tran[base]] + " " + tran[base + 2] + " " + completeTranslate[tran[base + 1]] + ")"
 for t in range(len(completeTranslate)):
     print(t,  " ", completeTranslate[t])
+'''
