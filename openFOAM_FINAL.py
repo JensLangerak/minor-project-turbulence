@@ -358,33 +358,129 @@ def baryMap_dist(baryMap_RANS,baryMap_DNS):
             dist[i1,i2]= np.sqrt((baryMap_RANS[0,i1,i2]-baryMap_DNS[0,i1,i2])**2 + (baryMap_RANS[1,i1,i2]-baryMap_DNS[1,i1,i2])**2)
     return dist
      
-def loadData_avg(dataset):
-    data_list = np.zeros([10, 100000])
-    with open(dataset, 'r') as f:
-        reader = csv.reader(f)
-        names = next(reader)[:-1]
-        for i,row in enumerate(reader):
-            if row:
-                data_list[:,i] = np.array([float(ii) for ii in row[:-1]])
-    
-    data_list = data_list[:,:i]
-    
-    data = {}
-    for i,var in enumerate(names):
-        data[var] = data_list[i,:]
+def loadData_avg(case, dataset):
+    if case == 'PeriodicHills':
+        print('function loadData_avg, case =', case)
+        data_list = np.zeros([10, 100000])
+        with open(dataset, 'r') as f:
+            reader = csv.reader(f)
+            names = next(reader)[:-1]
+            for i,row in enumerate(reader):
+                if row:
+                    data_list[:,i] = np.array([float(ii) for ii in row[:-1]])
+        
+        data_list = data_list[:,:i]
+        
+        data = {}
+        for i,var in enumerate(names):
+            data[var] = data_list[i,:]
+                    
+        return data
+    if case == 'SquareDuct':
+        print('function loadData_avg, case =', case)
+        with open(dataset, 'r') as f:
+            reader = csv.reader(f)
+            names = next(reader)
+            ubulk = next(reader)
+            #print(names)
+            data_list = np.zeros([len(names), 100000])
+            for i,row in enumerate(reader):
+                if row:
+                    data_list[:,i] = np.array([float(ii) for ii in row])
+       # print(i)
+        data_list = data_list[:,:i+1] 
+        data = {}
+        for j,var in enumerate(names):
+            data[var] = data_list[j,:]
+                  
+        return data
+    if case == 'ConvergingDivergingChannel':
+        #amount of lines between different blocks
+        ny = 193
+        nx = 1152
+        
+        interval = int(np.ceil((float(ny)*float(nx))/5.0))
+        
+        dataFile = {}
+        dataFile['vars'] = ["x","y","U","V","W","dx_mean_u","dx_mean_v","dx_mean_w","dy_mean_u","dy_mean_v",
+        "dy_mean_w","dz_mean_u","dz_mean_v","dz_mean_w","uu","uv","uw","vv","vw","ww"]
+        dataFile['vals'] = [[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[]]
+        
+        l_start = np.zeros(len(dataFile['vars']),dtype=int)
+        l_end = np.zeros(len(dataFile['vars']),dtype=int)
+        start_data = 26
+        
+        # datafile is separated in blocks, each belonging to one of the variables.
+        # set-up the start and end values of each block
+        for i in range(len(dataFile['vars'])):
+            l_start[i] = start_data + i*interval
+            l_end[i] = (interval+start_data-1) + i*interval
+        
+        with open(dataset, 'rb') as f:
+            
+            # go through all lines of file
+            for i,line in enumerate(f):  
                 
-    return data
+                # go through all variables
+                for j in range(l_start.shape[0]):
+                    
+                    # check the variable the current block belongs to
+                    if i >= l_start[j] and i <= l_end[j]:
+                        dataFile['vals'][j].append([float(x) for x in line.split()])
+        
+        data_DNS = {}
+        data = {}
+        # flatten the obtained lists with data            
+        for i in range(len(dataFile['vals'])):
+            data_DNS[dataFile['vars'][i]] = np.array([item for sublist in dataFile['vals'][i] for item in sublist])
+            data[dataFile['vars'][i]] = np.reshape(data_DNS[dataFile['vars'][i]],[nx,ny])
+        
+        data_list =  np.zeros([20, 44468*5])
 
+        for i in range(20):
+            for j in range(44467):
+                for k in range(5):
+                    data_list[i][k+j*5] = dataFile['vals'][i][j][k]
+            
+        return data_list
 
-def interpDNSOnRANS(dataDNS, meshRANS):
-    names = dataDNS.keys()    
-    data = {}
-    xy = np.array([dataDNS['x'], dataDNS['y']]).T
-    for var in names:
-        if not var=='x' and not var=='y':        
-            data[var] = interp.griddata(xy, dataDNS[var], (meshRANS[0,:,:], meshRANS[1,:,:]), method='linear')
-
-    return data
+def interpDNSOnRANS(case, dataDNS, meshRANS):
+    if case == 'PeriodicHills':
+        print('function interpDNSOnRANS, case =', case)
+        names = dataDNS.keys()    
+        data = {}
+        xy = np.array([dataDNS['x'], dataDNS['y']]).T
+        for var in names:
+            if not var=='x' and not var=='y':        
+                data[var] = interp.griddata(xy, dataDNS[var], (meshRANS[0,:,:], meshRANS[1,:,:]), method='linear')
+    
+        return data
+    if case == 'SquareDuct':
+        print('function interpDNSOnRANS, case =', case)
+        names = dataDNS.keys()    
+        data = {}
+        xy = np.array([dataDNS['Z'], dataDNS['Y']]).T
+    #    print(xy)
+    #    print(dataDNS['um'])
+        for var in names:
+            if not var=='Z' and not var=='Y':        
+                data[var] = interp.griddata(xy, dataDNS[var], (meshRANS[0], meshRANS[1]), method='linear')
+    #    print('shape xy: ' + str(xy.shape))
+        return data
+    if case == 'ConvergingDivergingChannel':
+        print('function interpDNSOnRANS, case =', case)
+        #names = dataDNS.keys()    
+        data = {}
+        xy = np.array([dataDNS[0], dataDNS[1]]).T
+        for var in range(20):
+            if not var==0 and not var==1:        
+                data[var] = interp.griddata(xy, dataDNS[var], (meshRANS[0,:,:], meshRANS[1,:,:]), method='linear')
+    
+        return data
+        
+    
+    
+    
 
 def eigenDecomposition(aij):
     #eigendecomposition of a tensor, returns the eigenvalues and eigenvectors 

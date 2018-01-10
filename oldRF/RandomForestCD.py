@@ -1,18 +1,25 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Dec 22 11:30:30 2017
+
+@author: thomas
+"""
+
 from __future__ import division
 import numpy as np
 import matplotlib.pyplot as plt
-import openFOAM as foam
+import openFOAMPH as foam
 import os
 import sys
 sys.path.append("..")
 from sklearn.ensemble import RandomForestRegressor
 
-
 import sys
 sys.path.append("..")
 
 home = os.path.realpath('MinorCSE') + '/'
- 
+
 ##################################################################################################################
 ######################################### Loading the RANS data ##################################################
 ##################################################################################################################
@@ -20,6 +27,11 @@ def RANS(case, Re, TurbModel, time_end, nx, ny):
     dir_RANS  = home + ('%s' % case) + '/' + ('Re%i_%s' % (Re,TurbModel))
     if case == 'SquareDuct':
         dir_RANS = dir_RANS + '_50'
+        if Re > 2000:
+            time_end = 50000
+            
+    if case == 'ConvergingDivergingChannel':
+        dir_RANS = dir_RANS + '_100'
         
     mesh_list  = foam.getRANSVector(dir_RANS, time_end, 'cellCentres')
     mesh      = foam.getRANSPlane(mesh_list,'2D', nx, ny, 'vector')
@@ -191,11 +203,21 @@ def response(case, Re, TurbModel, time_end, nx, ny, train):
         print('train = true')
         Y = np.zeros((nx*len(Re)*ny, 6))
         for i in range(len(Re)):
-            dataset = home + ('%s' % (case)) + '/' + ('DATA_CASE_LES_BREUER') + '/' + ('Re_%i' % Re[i]) + '/' + ('Hill_Re_%i_Breuer.csv' % Re[i])
+            if case == 'PeriodicHills':
+                dataset = home + ('%s' % (case)) + '/' + ('DATA_CASE_LES_BREUER') + '/' + ('Re_%i' % Re[i]) + '/' + ('Hill_Re_%i_Breuer.csv' % Re[i])
+            if case == 'SquareDuct':
+                dataset = ('MinorCSE/SquareDuct/DATA/0%i_full.csv' % Re[i])
+            if case == 'ConvergingDivergingChannel':
+                dataset = ('MinorCSE/ConvergingDivergingChannel/DATA/conv-div-mean-half.dat')
+                
             meshRANS, U_RANS, gradU_RANS, p_RANS, gradp_RANS, tau_RANS, k_RANS, gradk_RANS, yWall_RANS, omega_RANS, S_RANS, Omega_RANS = RANS(case, Re[i], TurbModel, time_end, nx, ny)
 
-            dataDNS = foam.loadData_avg(dataset)
-            dataDNS_i = foam.interpDNSOnRANS(dataDNS, meshRANS)
+            dataDNS = foam.loadData_avg(case, dataset)
+            print(np.shape(dataDNS))
+            print()
+            print(np.shape(meshRANS))
+            dataDNS_i = foam.interpDNSOnRANS(case, dataDNS, meshRANS)
+            print(dataDNS_i)
             dataDNS_i['k'] = 0.5 * (dataDNS_i['uu'] + dataDNS_i['vv'] + dataDNS_i['ww'])
 
             l1 = np.shape(U_RANS)[1]
@@ -218,10 +240,10 @@ def response(case, Re, TurbModel, time_end, nx, ny, train):
                     dataRANS_k[j,k] = 0.5 * np.trace(tau_RANS[:,:,j,k])
                     dataRANS_aij[:,:,j,k] = tau_RANS[:,:,j,k]/(2.*dataRANS_k[j,k]) - np.diag([1/3.,1/3.,1/3.])
 
-            aneigVal_DNS = foam.calcEigenvalues(aij_DNS, dataDNS_i['k'])
+            aneigVal_DNS = foam.calcEigenvalues(ReStress_DNS, dataDNS_i['k'])
             baryMap_DNS = foam.barycentricMap(aneigVal_DNS)
 
-            aneigVal_RANS = foam.calcEigenvalues(dataRANS_aij, dataRANS_k)
+            aneigVal_RANS = foam.calcEigenvalues(tau_RANS, dataRANS_k)
             baryMap_RANS = foam.barycentricMap(aneigVal_RANS)
 
             
@@ -247,11 +269,17 @@ def response(case, Re, TurbModel, time_end, nx, ny, train):
     else:
         print('train = false')
         for i in range(len(Re)):
-            dataset = home + ('%s' % (case)) + '/' + ('DATA_CASE_LES_BREUER') + '/' + ('Re_%i' % Re[i]) + '/' + ('Hill_Re_%i_Breuer.csv' % Re[i])
+            if case == 'PeriodicHills':
+                dataset = home + ('%s' % (case)) + '/' + ('DATA_CASE_LES_BREUER') + '/' + ('Re_%i' % Re[i]) + '/' + ('Hill_Re_%i_Breuer.csv' % Re[i])
+            if case == 'SquareDuct':
+                dataset = ('MinorCSE/SquareDuct/DATA/0%i_full.csv' % Re[i])
+            if case == 'ConvergingDivergingChannel':
+                dataset = ('MinorCSE/ConvergingDivergingChannel/DATA/conv-div-mean-half.dat')
+                
             meshRANS, U_RANS, gradU_RANS, p_RANS, gradp_RANS, tau_RANS, k_RANS, gradk_RANS, yWall_RANS, omega_RANS, S_RANS, Omega_RANS = RANS(case, Re[i], TurbModel, time_end, nx, ny)
 
-            dataDNS = foam.loadData_avg(dataset)
-            dataDNS_i = foam.interpDNSOnRANS(dataDNS, meshRANS)
+            dataDNS = foam.loadData_avg(case, dataset)
+            dataDNS_i = foam.interpDNSOnRANS(case, dataDNS, meshRANS)
             dataDNS_i['k'] = 0.5 * (dataDNS_i['uu'] + dataDNS_i['vv'] + dataDNS_i['ww'])
 
             l1 = np.shape(U_RANS)[1]
@@ -275,12 +303,12 @@ def response(case, Re, TurbModel, time_end, nx, ny, train):
                     dataRANS_aij[:,:,j,k] = tau_RANS[:,:,j,k]/(2.*dataRANS_k[j,k]) - np.diag([1/3.,1/3.,1/3.])
 
         
-            eigVal_DNS = foam.calcEigenvalues(aij_DNS, dataDNS_i['k'])
+            eigVal_DNS = foam.calcEigenvalues(ReStress_DNS, dataDNS_i['k'])
             print(np.shape(eigVal_DNS))
             baryMap_DNS = foam.barycentricMap(eigVal_DNS)
             print(np.shape(baryMap_DNS))
 
-            eigVal_RANS = foam.calcEigenvalues(dataRANS_aij, dataRANS_k)
+            eigVal_RANS = foam.calcEigenvalues(tau_RANS, dataRANS_k)
             baryMap_RANS = foam.barycentricMap(eigVal_RANS)
             print(np.shape(baryMap_RANS))
             baryMap_discr = foam.baryMap_discr(baryMap_RANS, baryMap_DNS)
@@ -289,37 +317,51 @@ def response(case, Re, TurbModel, time_end, nx, ny, train):
             return baryMap_RANS, baryMap_DNS, baryMap_discr
         
         
-##################################################################################################################
-##################################################################################################################
-######################################### Random forest ##########################################################
-##################################################################################################################
-
-case = 'PeriodicHills'
-
-# Training
-Re = [700, 1400, 2800, 5600, 10595]
-Re_train = np.delete(Re, 0)
-TurbModel = 'kOmega'
-X_train = features('PeriodicHills', Re_train, TurbModel='kOmega', time_end=30000, nx=140, ny=150)
-
-'''
-case = 'SquareDuct'
-Re = [1800, 2000, 2200, 2400, 2600, 2900, 3200, 3500] 
-Re_train = np.delete(Re, 2)
-TurbModel = 'kOmega'
-f = features(case, Re_train, TurbModel='kOmega', time_end=40000, nx=150, ny=150)
-X_train = features('SquareDuct', Re_train, TurbModel='kOmega', time_end=40000, nx=150, ny=150)
-'''
-
-'''case = 'ConvergingDivergingChannel'
-Re = [12600]
-TurbModel = ='kOmega'
-dir_RANS  = home + ('%s' % case) + '/' + ('Re%i_%s_100' % (Re,TurbModel))
-f = features(Re, TurbModel='kOmega', time_end=7000, nx=140, ny=100)
-'''                                        
 
 
-Y_train = response('PeriodicHills', Re_train, TurbModel='kOmega', time_end=30000, nx=140, ny=150, train = True)
+
+
+################################################## TRAINING #########################################################################
+
+
+
+#case = 'PeriodicHills'
+Re1 = [700, 1400, 2800, 5600, 10595]
+Re_train1 = Re1
+#Re_train1 = np.delete(Re1, 0)
+#TurbModel = 'kOmega'
+X_train1 = features('PeriodicHills', Re_train1, TurbModel='kOmega', time_end=30000, nx=140, ny=150)
+
+
+#case = 'SquareDuct'
+Re2 = [1800, 2000, 2200, 2400, 2600, 2900, 3200, 3500] 
+Re_train2 = Re2
+#Re_train2 = np.delete(Re2, 2)
+#TurbModel = 'kOmega'
+X_train2 = features('SquareDuct', Re_train2, TurbModel='kOmega', time_end=40000, nx=50, ny=50)
+
+
+def mergedata(X_train1, X_train2):
+    a = np.shape(X_train1)
+    b = np.shape(X_train2)
+    X = np.zeros((a[0]+b[0], a[1]))
+    for i in range(a[0]):
+        for j in range(a[1]):
+            X[i, j] = X_train1[i, j]
+    for k in range(b[0]):
+        for l in range(a[1]):
+            X[k+a[0], l] = X_train2[k, l]
+    return X
+
+X_train = mergedata(X_train1, X_train2)
+#X_train = features('ConvergingDivergingChannel', Re_train, TurbModel='kOmega', time_end=7000, nx=140, ny=100)
+
+
+
+Y_train1 = response('PeriodicHills', Re_train1, TurbModel='kOmega', time_end=30000, nx=140, ny=150, train = True)
+Y_train2 = response('SquareDuct', Re_train2, TurbModel='kOmega', time_end=40000, nx=50, ny=50, train = True)
+
+Y_train = mergedata(Y_train1, Y_train2)
 
 regr = RandomForestRegressor(n_estimators=10, criterion='mse', max_depth=None, min_samples_split=2, min_samples_leaf=1, 
     min_weight_fraction_leaf=0.0, max_features='auto', max_leaf_nodes=None, min_impurity_decrease=0.0, 
@@ -329,16 +371,18 @@ regr = RandomForestRegressor(n_estimators=10, criterion='mse', max_depth=None, m
 regr.fit(X_train, Y_train)
 print("Feature importance :", regr.feature_importances_) 
 
+################################################ TESTING #################################################################
 
-# Testing
-Re_test = [Re[0]]
-print(Re_test)
+#case = 'ConvergingDivergingChannel'
+Re_test = [12600]
+#TurbModel = 'kOmega'
+#dir_RANS  = home + ('%s' % case) + '/' + ('Re%i_%s_100' % (Re_test,TurbModel))
+X_test = features('ConvergingDivergingChannel', Re_test, TurbModel='kOmega', time_end=7000, nx=140, ny=100)
+print(np.shape(X_test))
+test_discr = regr.predict(X_test)
+test_discr = np.reshape(test_discr.swapaxes(1,0), (6, 140, 100))
 
-test_X = features('PeriodicHills', Re_test, TurbModel='kOmega', time_end=30000, nx=140, ny=150)
-test_discr = regr.predict(test_X)
-test_discr = np.reshape(test_discr.swapaxes(1,0), (6, 140, 150))
-
-baryMap_RANS, baryMap_DNS, baryMap_discr = response('PeriodicHills', Re_test, TurbModel='kOmega', time_end=30000, nx=140, ny=150, train = False)
+baryMap_RANS, baryMap_DNS, baryMap_discr = response('ConvergingDivergingChannel', Re_test, TurbModel='kOmega', time_end=7000, nx=140, ny=100, train = False)
 
 
 # Plots
@@ -354,6 +398,20 @@ plt.show()
 plt.figure()
 plt.title("RANS %s_Re%i corrected with predicted descripancies from RF" % (case, Re_test[0]))
 plt.plot(np.add(test_discr[0,:,:], baryMap_RANS[0,:,:]) ,np.add(test_discr[1,:,:],baryMap_RANS[1,:,:]),'b*')
+plt.plot([0,1,0.5,0],[0,0,np.sin(60*(np.pi/180)),0],'k-')
+plt.axis('equal')
+plt.show()
+
+plt.figure()
+plt.title('DNS %s_Re%i' % (case, Re_test[0]))
+plt.plot(baryMap_DNS[0,10,:],baryMap_DNS[1,10,:],'b.')
+plt.plot([0,1,0.5,0],[0,0,np.sin(60*(np.pi/180)),0],'k-')
+plt.axis('equal')
+plt.show()
+
+plt.figure()
+plt.title("RANS %s_Re%i corrected with predicted descripancies from RF" % (case, Re_test[0]))
+plt.plot(np.add(test_discr[0,10,:], baryMap_RANS[0,10,:]) ,np.add(test_discr[1,10,:],baryMap_RANS[1,10,:]),'r.')
 plt.plot([0,1,0.5,0],[0,0,np.sin(60*(np.pi/180)),0],'k-')
 plt.axis('equal')
 plt.show()
@@ -379,7 +437,7 @@ plt.plot([0,1,0.5,0],[0,0,np.sin(60*(np.pi/180)),0],'k-')
 plt.axis('equal')
 plt.show()
 
-'''
+
 plt.figure()
 plt.title("Velocity from DNS")
 plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], dataDNS_i['um'],20)
@@ -405,56 +463,3 @@ plt.title("dist")
 plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], foam.baryMap_dist(baryMap_RANS,baryMap_DNS))
 plt.show()
 
-plt.figure()
-plt.title("Feature 6")
-plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], q6(gradp_RANS, gradU_RANS, p_RANS,U_RANS))
-plt.show()
-'''
-
-
-##################################################################################################################
-####################################### Training parameters ######################################################
-##################################################################################################################
-'''
-def plotRF(Nest, Nfeatures, X, Y, Re_test):
-    score = np.zeros((len(Nest),len(Nfeatures)))
-    a = np.shape(score)
-    for i in range(a[0]):
-        for j in range(a[1]):
-            regr = RandomForestRegressor(n_estimators=Nest[i], criterion='mse', max_depth=None, min_samples_split=2, min_samples_leaf=1, 
-                    min_weight_fraction_leaf=0.0, max_features=Nfeatures[j], max_leaf_nodes=None, min_impurity_decrease=0.0, 
-                    min_impurity_split=None, bootstrap=True, oob_score=False, n_jobs=1, random_state=None, 
-                    verbose=0, warm_start=False)
-            
-            regr.fit(X, Y)
-            test_X = features('PeriodicHills', Re_test, TurbModel='kOmega', time_end=30000, nx=140, ny=150)
-            test_discr = regr.predict(test_X)
-            test_discr = np.reshape(test_discr.swapaxes(1,0), (2, 140, 150))
-            Y_test = response('PeriodicHills', Re_test, nx=140, ny=150, train = True)
-            score[i, j] = regr.score(test_X, Y_test)
-    return score
-            
-Nest = [3, 6, 9, 12]
-Nfeatures = [3, 5, 7, 9]
-
-p = plotRF(Nest, Nfeatures, X_train, Y_train, [700])
-
-plt.figure()
-plt.title("score, number of estimators")
-plt.plot(Nest, p[:,0])
-plt.show()
-
-plt.figure()
-plt.title("score, number of features")
-plt.plot(Nfeatures, p[0,:])
-plt.show()
-
-plt.figure()
-plt.title("score")
-plt.contourf(Nfeatures, Nest, p)
-plt.ylabel("Number of estimators")
-plt.xlabel("Number of features")
-plt.colorbar()
-plt.show()
-
-'''

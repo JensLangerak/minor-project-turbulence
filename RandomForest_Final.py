@@ -1,7 +1,15 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Dec 22 11:30:30 2017
+
+@author: thomas
+"""
+
 from __future__ import division
 import numpy as np
 import matplotlib.pyplot as plt
-import openFOAMSD as foam
+import openFOAM_FINAL as foam
 import os
 import sys
 sys.path.append("..")
@@ -21,10 +29,11 @@ def RANS(case, Re, TurbModel, time_end, nx, ny):
         dir_RANS = dir_RANS + '_50'
         if Re > 2000:
             time_end = 50000
+            
+    if case == 'ConvergingDivergingChannel':
+        dir_RANS = dir_RANS + '_100'
         
     mesh_list  = foam.getRANSVector(dir_RANS, time_end, 'cellCentres')
-    print(mesh_list)
-    print(np.shape(mesh_list))
     mesh      = foam.getRANSPlane(mesh_list,'2D', nx, ny, 'vector')
     #velocity
     U_list    = foam.getRANSVector(dir_RANS, time_end, 'U')
@@ -194,11 +203,20 @@ def response(case, Re, TurbModel, time_end, nx, ny, train):
         print('train = true')
         Y = np.zeros((nx*len(Re)*ny, 6))
         for i in range(len(Re)):
-            dataset = ('MinorCSE/SquareDuct/DATA/0%i_full.csv' % Re[i])
+            if case == 'PeriodicHills':
+                dataset = home + ('%s' % (case)) + '/' + ('DATA_CASE_LES_BREUER') + '/' + ('Re_%i' % Re[i]) + '/' + ('Hill_Re_%i_Breuer.csv' % Re[i])
+            if case == 'SquareDuct':
+                dataset = ('MinorCSE/SquareDuct/DATA/0%i_full.csv' % Re[i])
+           
+                
             meshRANS, U_RANS, gradU_RANS, p_RANS, gradp_RANS, tau_RANS, k_RANS, gradk_RANS, yWall_RANS, omega_RANS, S_RANS, Omega_RANS = RANS(case, Re[i], TurbModel, time_end, nx, ny)
 
-            dataDNS = foam.loadData_avg(dataset)
-            dataDNS_i = foam.interpDNSOnRANS(dataDNS, meshRANS)
+            dataDNS = foam.loadData_avg(case, dataset)
+            print(np.shape(dataDNS))
+            print()
+            print(np.shape(meshRANS))
+            dataDNS_i = foam.interpDNSOnRANS(case, dataDNS, meshRANS)
+            print(dataDNS_i)
             dataDNS_i['k'] = 0.5 * (dataDNS_i['uu'] + dataDNS_i['vv'] + dataDNS_i['ww'])
 
             l1 = np.shape(U_RANS)[1]
@@ -250,11 +268,17 @@ def response(case, Re, TurbModel, time_end, nx, ny, train):
     else:
         print('train = false')
         for i in range(len(Re)):
-            dataset = ('MinorCSE/SquareDuct/DATA/0%i_full.csv' % Re[i])
+            if case == 'PeriodicHills':
+                dataset = home + ('%s' % (case)) + '/' + ('DATA_CASE_LES_BREUER') + '/' + ('Re_%i' % Re[i]) + '/' + ('Hill_Re_%i_Breuer.csv' % Re[i])
+            if case == 'SquareDuct':
+                dataset = ('MinorCSE/SquareDuct/DATA/0%i_full.csv' % Re[i])
+            if case == 'ConvergingDivergingChannel':
+                dataset = ('MinorCSE/ConvergingDivergingChannel/DATA/conv-div-mean-half.dat')
+                
             meshRANS, U_RANS, gradU_RANS, p_RANS, gradp_RANS, tau_RANS, k_RANS, gradk_RANS, yWall_RANS, omega_RANS, S_RANS, Omega_RANS = RANS(case, Re[i], TurbModel, time_end, nx, ny)
 
-            dataDNS = foam.loadData_avg(dataset)
-            dataDNS_i = foam.interpDNSOnRANS(dataDNS, meshRANS)
+            dataDNS = foam.loadData_avg(case, dataset)
+            dataDNS_i = foam.interpDNSOnRANS(case, dataDNS, meshRANS)
             dataDNS_i['k'] = 0.5 * (dataDNS_i['uu'] + dataDNS_i['vv'] + dataDNS_i['ww'])
 
             l1 = np.shape(U_RANS)[1]
@@ -291,12 +315,164 @@ def response(case, Re, TurbModel, time_end, nx, ny, train):
             print('return bary')
             return baryMap_RANS, baryMap_DNS, baryMap_discr
         
-case = 'SquareDuct'
-Re = [1800, 2000, 2200, 2400, 2600, 2900, 3200, 3500] 
-Re_train = np.delete(Re, 2)
-TurbModel = 'kOmega'
+        
+def responseCD(case, Re, TurbModel, time_end, nx, ny, train): 
+    if train ==True:
+        print('train = true')
+        Y = np.zeros((nx*len(Re)*ny, 6))
+        
+            
+        if case == 'ConvergingDivergingChannel':
+            dataset = ('MinorCSE/ConvergingDivergingChannel/DATA/conv-div-mean-half.dat')
+        else:
+            print('wrong flowcase!')
+       
+            
+        meshRANS, U_RANS, gradU_RANS, p_RANS, gradp_RANS, tau_RANS, k_RANS, gradk_RANS, yWall_RANS, omega_RANS, S_RANS, Omega_RANS = RANS(case, Re, TurbModel, time_end, nx, ny)
 
-X_train = features('SquareDuct', Re_train, TurbModel='kOmega', time_end=40000, nx=50, ny=50)
+        dataDNS = foam.loadData_avg(case, dataset)
+        dataDNS_i = foam.interpDNSOnRANS(case, dataDNS, meshRANS)
+        dataDNS_i['k'] = 0.5 * (dataDNS_i[14] + dataDNS_i[17] + dataDNS_i[19])
+
+        l1 = np.shape(U_RANS)[1]
+        l2 = np.shape(U_RANS)[2]
+
+        ReStress_DNS = np.zeros([3,3,l1,l2])
+        ReStress_DNS[0,0,:,:] = dataDNS_i[14]
+        ReStress_DNS[1,1,:,:] = dataDNS_i[17]
+        ReStress_DNS[2,2,:,:] = dataDNS_i[19]
+        ReStress_DNS[0,1,:,:] = dataDNS_i[15]
+        ReStress_DNS[1,0,:,:] = dataDNS_i[15]
+
+        aij_DNS = np.zeros([3,3,l1,l2])
+        dataRANS_k = np.zeros([l1,l2])
+        dataRANS_aij = np.zeros([3,3,l1,l2])
+
+        for j in range(l1):
+            for k in range(l2):
+                aij_DNS[:,:,j,k] = ReStress_DNS[:,:,j,k]/(2.*dataDNS_i['k'][j,k]) - np.diag([1/3.,1/3.,1/3.])
+                dataRANS_k[j,k] = 0.5 * np.trace(tau_RANS[:,:,j,k])
+                dataRANS_aij[:,:,j,k] = tau_RANS[:,:,j,k]/(2.*dataRANS_k[j,k]) - np.diag([1/3.,1/3.,1/3.])
+
+        aneigVal_DNS = foam.calcEigenvalues(ReStress_DNS, dataDNS_i['k'])
+        baryMap_DNS = foam.barycentricMap(aneigVal_DNS)
+
+        aneigVal_RANS = foam.calcEigenvalues(tau_RANS, dataRANS_k)
+        baryMap_RANS = foam.barycentricMap(aneigVal_RANS)
+
+        
+        eigVal_RANS, eigVec_RANS = foam.eigenDecomposition(dataRANS_aij)
+        eigVal_DNS, eigVec_DNS = foam.eigenDecomposition(aij_DNS)
+        
+        phi_RANS =  np.reshape(( np.reshape((foam.eigenvectorToEuler(eigVec_RANS)).swapaxes(1,2), (nx*ny, 3), "F")).swapaxes(1,0), (nx*ny, 3))
+        phi_DNS =  np.reshape(( np.reshape((foam.eigenvectorToEuler(eigVec_DNS)).swapaxes(1,2), (nx*ny, 3), "F")).swapaxes(1,0), (nx*ny, 3))
+        
+        baryMap_discr = np.reshape(( np.reshape((foam.baryMap_discr(baryMap_RANS, baryMap_DNS)).swapaxes(1,2), (nx*ny, 2), "F")).swapaxes(1,0), (nx*ny, 2))
+
+        phi_discr = phi_DNS - phi_RANS
+        k_discr = np.reshape(( np.reshape((dataDNS_i['k'] - k_RANS).swapaxes(1,2), (nx*ny, 1), "F")).swapaxes(1,0), (nx*ny, 1))
+    
+        Y[0:nx*ny, 0:2] = baryMap_discr
+        Y[0:nx*ny, 2:5] = phi_discr
+        Y[0:nx*ny, 5] = k_discr[:,0]
+            
+
+        print('return Y')
+        return Y
+    
+    else:
+        print('train = false')
+        
+        if case == 'PeriodicHills':
+            dataset = home + ('%s' % (case)) + '/' + ('DATA_CASE_LES_BREUER') + '/' + ('Re_%i' % Re) + '/' + ('Hill_Re_%i_Breuer.csv' % Re)
+        if case == 'SquareDuct':
+            dataset = ('MinorCSE/SquareDuct/DATA/0%i_full.csv' % Re)
+        if case == 'ConvergingDivergingChannel':
+            dataset = ('MinorCSE/ConvergingDivergingChannel/DATA/conv-div-mean-half.dat')
+            
+        meshRANS, U_RANS, gradU_RANS, p_RANS, gradp_RANS, tau_RANS, k_RANS, gradk_RANS, yWall_RANS, omega_RANS, S_RANS, Omega_RANS = RANS(case, Re, TurbModel, time_end, nx, ny)
+
+        dataDNS = foam.loadData_avg(case, dataset)
+        dataDNS_i = foam.interpDNSOnRANS(case, dataDNS, meshRANS)
+        dataDNS_i['k'] = 0.5 * (dataDNS_i[14] + dataDNS_i[17] + dataDNS_i[19])
+
+        l1 = np.shape(U_RANS)[1]
+        l2 = np.shape(U_RANS)[2]
+
+        ReStress_DNS = np.zeros([3,3,l1,l2])
+        ReStress_DNS[0,0,:,:] = dataDNS_i[14]
+        ReStress_DNS[1,1,:,:] = dataDNS_i[17]
+        ReStress_DNS[2,2,:,:] = dataDNS_i[19]
+        ReStress_DNS[0,1,:,:] = dataDNS_i[15]
+        ReStress_DNS[1,0,:,:] = dataDNS_i[15]
+
+        aij_DNS = np.zeros([3,3,l1,l2])
+        dataRANS_k = np.zeros([l1,l2])
+        dataRANS_aij = np.zeros([3,3,l1,l2])
+
+        for j in range(l1):
+            for k in range(l2):
+                aij_DNS[:,:,j,k] = ReStress_DNS[:,:,j,k]/(2.*dataDNS_i['k'][j,k]) - np.diag([1/3.,1/3.,1/3.])
+                dataRANS_k[j,k] = 0.5 * np.trace(tau_RANS[:,:,j,k])
+                dataRANS_aij[:,:,j,k] = tau_RANS[:,:,j,k]/(2.*dataRANS_k[j,k]) - np.diag([1/3.,1/3.,1/3.])
+
+    
+        eigVal_DNS = foam.calcEigenvalues(ReStress_DNS, dataDNS_i['k'])
+        print(np.shape(eigVal_DNS))
+        baryMap_DNS = foam.barycentricMap(eigVal_DNS)
+        print(np.shape(baryMap_DNS))
+
+        eigVal_RANS = foam.calcEigenvalues(tau_RANS, dataRANS_k)
+        baryMap_RANS = foam.barycentricMap(eigVal_RANS)
+        print(np.shape(baryMap_RANS))
+        baryMap_discr = foam.baryMap_discr(baryMap_RANS, baryMap_DNS)
+        print(np.shape(baryMap_discr))
+        print('return bary')
+        return baryMap_RANS, baryMap_DNS, baryMap_discr
+        
+
+
+################################################## TRAINING #########################################################################
+
+
+
+#case = 'PeriodicHills'
+Re1 = [700, 1400, 2800, 5600, 10595]
+Re_train1 = Re1
+#Re_train1 = np.delete(Re1, 0)
+#TurbModel = 'kOmega'
+X_train1 = features('PeriodicHills', Re_train1, TurbModel='kOmega', time_end=30000, nx=140, ny=150)
+
+
+#case = 'SquareDuct'
+Re2 = [1800, 2000, 2200, 2400, 2600, 2900, 3200, 3500] 
+Re_train2 = Re2
+#Re_train2 = np.delete(Re2, 2)
+#TurbModel = 'kOmega'
+X_train2 = features('SquareDuct', Re_train2, TurbModel='kOmega', time_end=40000, nx=50, ny=50)
+
+
+def mergedata(X_train1, X_train2):
+    a = np.shape(X_train1)
+    b = np.shape(X_train2)
+    X = np.zeros((a[0]+b[0], a[1]))
+    for i in range(a[0]):
+        for j in range(a[1]):
+            X[i, j] = X_train1[i, j]
+    for k in range(b[0]):
+        for l in range(a[1]):
+            X[k+a[0], l] = X_train2[k, l]
+    return X
+
+X_train = mergedata(X_train1, X_train2)
+#X_train = features('ConvergingDivergingChannel', Re_train, TurbModel='kOmega', time_end=7000, nx=140, ny=100)
+
+
+
+Y_train1 = response('PeriodicHills', Re_train1, TurbModel='kOmega', time_end=30000, nx=140, ny=150, train = True)
+Y_train2 = response('SquareDuct', Re_train2, TurbModel='kOmega', time_end=40000, nx=50, ny=50, train = True)
+
+Y_train = mergedata(Y_train1, Y_train2)
 
 regr = RandomForestRegressor(n_estimators=10, criterion='mse', max_depth=None, min_samples_split=2, min_samples_leaf=1, 
     min_weight_fraction_leaf=0.0, max_features='auto', max_leaf_nodes=None, min_impurity_decrease=0.0, 
@@ -306,15 +482,19 @@ regr = RandomForestRegressor(n_estimators=10, criterion='mse', max_depth=None, m
 regr.fit(X_train, Y_train)
 print("Feature importance :", regr.feature_importances_) 
 
-# Testing
-Re_test = [Re[0]]
-print(Re_test)
+################################################ TESTING #################################################################
 
-test_X = features('SquareDuct', Re_test, TurbModel='kOmega', time_end=40000, nx=50, ny=50)
-test_discr = np.reshape(test_discr.swapaxes(1,0), (6, 50, 50))
+#case = 'ConvergingDivergingChannel'
+Re_test = [12600]
+#TurbModel = 'kOmega'
+#dir_RANS  = home + ('%s' % case) + '/' + ('Re%i_%s_100' % (Re_test,TurbModel))
+X_test = features('ConvergingDivergingChannel', Re_test, TurbModel='kOmega', time_end=7000, nx=140, ny=100)
+print(np.shape(X_test))
+test_discr = regr.predict(X_test)
+test_discr = np.reshape(test_discr.swapaxes(1,0), (6, 140, 100))
 
+baryMap_RANS, baryMap_DNS, baryMap_discr = responseCD('ConvergingDivergingChannel', Re_test[0], TurbModel='kOmega', time_end=7000, nx=140, ny=100, train = False)
 
-baryMap_RANS, baryMap_DNS, baryMap_discr = response('SquareDuct', Re_test, TurbModel='kOmega', time_end=40000, nx=50, ny=50, train = False)
 
 # Plots
 
