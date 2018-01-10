@@ -73,7 +73,7 @@ class GCPEvolver:
 
         self.population_size = 2 * self.half_population  # + 1 # total population size, +1 for the best previous solution
         self.nr_features = nr_features
-        self.graph = Graph(10)
+        self.graph = None #Graph(10)
 
         self.openCLExecutor = None
 
