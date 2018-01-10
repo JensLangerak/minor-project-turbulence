@@ -343,7 +343,7 @@ Y_train = response('PeriodicHills', Re_train, TurbModel='kOmega', time_end=30000
 #regr.fit(X_train, Y_train)
 #print("Feature importance :", regr.feature_importances_)
 
-evolver = ev.GCPEvolver(half_population=250, nr_nodes=15, mutation_chance=0.02, max_score=700000000, nr_features=9)
+evolver = ev.GCPEvolver(half_population=250, nr_nodes=50, mutation_chance=0.02, max_score=700000000, nr_features=9)
 
 sol = evolver.evolve(X_train, Y_train)
 
