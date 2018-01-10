@@ -25,7 +25,7 @@ import math
 import numpy as np
 node_size = 3  # How many numbers are needed for one node. Two for the input and one to determine the operation.
 outputs = 2  # Number of outputs that should be returned.
-operations = 4  # Number of supported operations.
+operations = 3  # Number of supported operations.
 
 operation_list = ['+', '-', '*', '/']
 

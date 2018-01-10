@@ -56,7 +56,7 @@ class GCPEvolver:
     """
     Class that handles the evolution process
     """
-    def __init__(self, half_population=250, nr_nodes=10, mutation_chance=0.02, max_score=700000000, nr_features=9):
+    def __init__(self, half_population=250, nr_nodes=10, mutation_chance=0.04, max_score=10000, nr_features=9):
         """
         Create a class that can be used to evolve a solution.
         :param half_population: size of half the population
