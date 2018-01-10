@@ -326,15 +326,15 @@ class OpenCLExecutor:
               if(op == 2)
                   inputs[i + nr_features] = i1 * i2;
               if(op == 3) {
-                float safe_offset = (i2 > 0) ? 0.00001 : -0.00001;
+                float safe_offset = (i2 > 0) ? FLT_EPSILON : -FLT_EPSILON;
                 inputs[i + nr_features] = i1 / (i2 + safe_offset);    
               }                  
           }
           float result1= inputs[nr_features + nr_nodes -1] - r_g[2 * gid];
           float result2= inputs[nr_features + nr_nodes -2] - r_g[2 * gid + 1];
           float result = sqrt(result1 * result1 + result2 * result2);
-          result = 1 / (result + 0.02);
-          res_g[gid] = result;
+          //result = 1 / (result + 0.02);
+          res_g[gid] = -result;
         }
         """).build()
 
@@ -363,7 +363,7 @@ class OpenCLExecutor:
               if(op == 2)
                   inputs[i + nr_features] = i1 * i2;
               if(op == 3) {
-                float safe_offset = (i2 > 0) ? 0.00001 : -0.00001;
+                float safe_offset = (i2 > 0) ? FLT_EPSILON : -FLT_EPSILON;
                 inputs[i + nr_features] = i1 / (i2 + safe_offset);    
               }                  
           }
@@ -384,7 +384,7 @@ class OpenCLExecutor:
                                                    self.features_g,
                                                    self.result_g, translated_g)
             cl.enqueue_copy(self.queue, self.result_np, self.result_g)
-            fitness_list[i] = (i, self.result_np.sum())
+            fitness_list[i] = (i, np.sum(self.result_np) / self.nr_points)
         return fitness_list
 
     def predict(self, solution, features):
@@ -413,28 +413,26 @@ for x in range(1, 20, 1):
             for u in range(1, 20, 1):
                 f += [[x, y, z, u]]
                 #res = 2 * x - 3 * y + 4 * z - u * x
-                res = x / y
+                res = math.cos(x)
                 ref += [[res, res]]
 
 
-result = evolve(f, ref)
-print(cgp(f[0], result))
-print(cgp(f[1], result))
-print(cgp(f[2], result))
-print(cgp(f[3], result))
+evolver = GCPEvolver(half_population=250, nr_nodes=50, mutation_chance=0.02, max_score=700000000, nr_features=4)
+
+result = evolver.evolve(f, ref)
 
 #debug code print result
 tran =  result
-for n in range(nr_nodes):
-    base = n * node_size
+for n in range(evolver.nr_nodes):
+    base = n * evolver.node_size
     print(n + len(f[0]), " : ", tran[base], " ",  tran[base + 1], " ",  tran[base + 2], " ")
 
-completeTranslate = (len(f[0]) + nr_nodes) * [""]
+completeTranslate = (len(f[0]) + evolver.nr_features) * [""]
 for t in range(len(f[0])):
     completeTranslate[t] = "F" + str(t)
 
-for n in range(nr_nodes):
-    base = n * node_size
+for n in range(evolver.nr_nodes):
+    base = n * evolver.node_size
     d = n + len(f[0])
     completeTranslate[d] = "(" + completeTranslate[tran[base]] + " " + tran[base + 2] + " " + completeTranslate[tran[base + 1]] + ")"
 for t in range(len(completeTranslate)):
