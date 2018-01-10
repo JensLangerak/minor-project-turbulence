@@ -148,7 +148,7 @@ def calculate_input(cgp_program, input_id, inputs, nr_features):
 #output2ref=nrnodes-1
 
     
-def nodes_used(outputref, nodelist,lst):
+def nodes_used(outputref, nodelist,lst, nr_features):
     if outputref< nr_features :
         return nodelist
     outputref-=nr_features
@@ -179,8 +179,8 @@ def createListnodes(sol, nr_features):
     nodelist=nrnodes*[0]
     output1ref=nrnodes-2
     output2ref=nrnodes-1
-    onlynodes=nodes_used(output1ref+nr_features, nodelist, sol)
-    solution=nodes_used(output2ref+nr_features, onlynodes, sol)
+    onlynodes=nodes_used(output1ref+nr_features, nodelist, sol, nr_features)
+    solution=nodes_used(output2ref+nr_features, onlynodes, sol, nr_features)
     #print("Tes")
     #print (solution)
     #turn nodelist into list size of solution:
@@ -196,6 +196,7 @@ def createListnodes(sol, nr_features):
                 newlist[node_size*i+j]=1  
     return newlist
 
+
 def complete_translate(cgp_program, nr_features, nr_nodes):
     completeTranslate = (nr_features + nr_nodes) * [""]
     for i in range(nr_features):
@@ -209,7 +210,8 @@ def complete_translate(cgp_program, nr_features, nr_nodes):
 
     return completeTranslate
 
-def complete_translate_to_ints(cgp_program):
+
+def translate_operation_to_ints(cgp_program):
     res = np.empty_like(cgp_program)
     for i in range(len(cgp_program)):
         k = cgp_program[i]

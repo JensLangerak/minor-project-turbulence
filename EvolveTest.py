@@ -349,7 +349,9 @@ Y_train = response('PeriodicHills', Re_train, TurbModel='kOmega', time_end=30000
 #regr.fit(X_train, Y_train)
 #print("Feature importance :", regr.feature_importances_)
 
-sol = ev.evolve(X_train, Y_train)
+evolver = ev.GCPEvolver(half_population=5, nr_nodes=15, mutation_chance=0.02, max_score=700000000, nr_features=9)
+
+sol = evolver.evolve(X_train, Y_train)
 
 
 # Testing
@@ -357,14 +359,16 @@ Re_test = [Re[0]]
 print(Re_test)
 
 test_X = features('PeriodicHills', Re_test, TurbModel='kOmega', time_end=30000, nx=140, ny=150)
-test_discr = ev.predict(sol, test_X, Y_train)
+test_discr = evolver.predict(sol, test_X)
 test_discr = np.reshape(test_discr.swapaxes(1, 0), (2, 140, 150))
 
 baryMap_RANS, baryMap_DNS, baryMap_discr = response('PeriodicHills', Re_test, TurbModel='kOmega', time_end=30000,
                                                     nx=140, ny=150, train=False)
 
 # Plots
-
+tra = ev.cgp.complete_translate(sol, 9, 10)
+print (tra[10 + 9 -1])
+print (tra[10 + 9 -2])
 
 plt.figure()
 plt.title('DNS %s_Re%i' % (case, Re_test[0]))
@@ -400,6 +404,8 @@ plt.plot(test_discr[0, :, :], test_discr[1, :, :], 'b*')
 plt.plot([0, 1, 0.5, 0], [0, 0, np.sin(60 * (np.pi / 180)), 0], 'k-')
 plt.axis('equal')
 plt.show()
+
+input()
 
 '''
 plt.figure()
