@@ -217,6 +217,7 @@ def response(case, Re, TurbModel, time_end, nx, ny, train):
             print()
             print(np.shape(meshRANS))
             dataDNS_i = foam.interpDNSOnRANS(case, dataDNS, meshRANS)
+            print(dataDNS_i)
             dataDNS_i['k'] = 0.5 * (dataDNS_i['uu'] + dataDNS_i['vv'] + dataDNS_i['ww'])
 
             l1 = np.shape(U_RANS)[1]
@@ -315,17 +316,53 @@ def response(case, Re, TurbModel, time_end, nx, ny, train):
             print('return bary')
             return baryMap_RANS, baryMap_DNS, baryMap_discr
         
-case = 'ConvergingDivergingChannel'
-Re = [12600] 
-Re_train = Re
+        
 
 
-X_train = features('ConvergingDivergingChannel', Re_train, TurbModel='kOmega', time_end=7000, nx=140, ny=100)
 
 
-Y_train = response('ConvergingDivergingChannel', Re_train, TurbModel='kOmega', time_end=7000, nx=140, ny=100, train = True)
+################################################## TRAINING #########################################################################
 
-'''
+
+
+#case = 'PeriodicHills'
+Re1 = [700, 1400, 2800, 5600, 10595]
+Re_train1 = Re1
+#Re_train1 = np.delete(Re1, 0)
+#TurbModel = 'kOmega'
+X_train1 = features('PeriodicHills', Re_train1, TurbModel='kOmega', time_end=30000, nx=140, ny=150)
+
+
+#case = 'SquareDuct'
+Re2 = [1800, 2000, 2200, 2400, 2600, 2900, 3200, 3500] 
+Re_train2 = Re2
+#Re_train2 = np.delete(Re2, 2)
+#TurbModel = 'kOmega'
+X_train2 = features('SquareDuct', Re_train2, TurbModel='kOmega', time_end=40000, nx=50, ny=50)
+
+
+def mergedata(X_train1, X_train2):
+    a = np.shape(X_train1)
+    b = np.shape(X_train2)
+    X = np.zeros((a[0]+b[0], a[1]))
+    for i in range(a[0]):
+        for j in range(a[1]):
+            X[i, j] = X_train1[i, j]
+    for k in range(b[0]):
+        for l in range(a[1]):
+            X[k+a[0], l] = X_train2[k, l]
+    return X
+
+X_train = mergedata(X_train1, X_train2)
+#X_train = features('ConvergingDivergingChannel', Re_train, TurbModel='kOmega', time_end=7000, nx=140, ny=100)
+
+
+
+Y_train1 = response('PeriodicHills', Re_train1, TurbModel='kOmega', time_end=30000, nx=140, ny=150, train = True)
+Y_train2 = response('SquareDuct', Re_train2, TurbModel='kOmega', time_end=40000, nx=50, ny=50, train = True)
+
+Y_train = mergedata(Y_train1, Y_train2)
+
 regr = RandomForestRegressor(n_estimators=10, criterion='mse', max_depth=None, min_samples_split=2, min_samples_leaf=1, 
     min_weight_fraction_leaf=0.0, max_features='auto', max_leaf_nodes=None, min_impurity_decrease=0.0, 
     min_impurity_split=None, bootstrap=True, oob_score=False, n_jobs=-1, random_state=None, 
@@ -334,16 +371,19 @@ regr = RandomForestRegressor(n_estimators=10, criterion='mse', max_depth=None, m
 regr.fit(X_train, Y_train)
 print("Feature importance :", regr.feature_importances_) 
 
-# Testing
-Re_test = [Re[0]]
-print(Re_test)
+################################################ TESTING #################################################################
 
-test_X = features('SquareDuct', Re_test, TurbModel='kOmega', time_end=40000, nx=50, ny=50)
-test_discr = regr.predict(test_X)
-test_discr = np.reshape(test_discr.swapaxes(1,0), (6, 50, 50))
+#case = 'ConvergingDivergingChannel'
+Re_test = [12600]
+#TurbModel = 'kOmega'
+#dir_RANS  = home + ('%s' % case) + '/' + ('Re%i_%s_100' % (Re_test,TurbModel))
+X_test = features('ConvergingDivergingChannel', Re_test, TurbModel='kOmega', time_end=7000, nx=140, ny=100)
+print(np.shape(X_test))
+test_discr = regr.predict(X_test)
+test_discr = np.reshape(test_discr.swapaxes(1,0), (6, 140, 100))
 
+baryMap_RANS, baryMap_DNS, baryMap_discr = response('ConvergingDivergingChannel', Re_test, TurbModel='kOmega', time_end=7000, nx=140, ny=100, train = False)
 
-baryMap_RANS, baryMap_DNS, baryMap_discr = response('SquareDuct', Re_test, TurbModel='kOmega', time_end=40000, nx=50, ny=50, train = False)
 
 # Plots
 
@@ -422,4 +462,4 @@ plt.figure()
 plt.title("dist")
 plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], foam.baryMap_dist(baryMap_RANS,baryMap_DNS))
 plt.show()
-'''
+

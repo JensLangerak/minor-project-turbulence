@@ -1,7 +1,9 @@
+# Training ond testing for PeriodicHills or SquareDuct flowcases. 
+
 from __future__ import division
 import numpy as np
 import matplotlib.pyplot as plt
-import openFOAMPH as foam
+import openFOAM as foam
 import os
 import sys
 sys.path.append("..")
@@ -222,10 +224,10 @@ def response(case, Re, TurbModel, time_end, nx, ny, train):
                     dataRANS_k[j,k] = 0.5 * np.trace(tau_RANS[:,:,j,k])
                     dataRANS_aij[:,:,j,k] = tau_RANS[:,:,j,k]/(2.*dataRANS_k[j,k]) - np.diag([1/3.,1/3.,1/3.])
 
-            aneigVal_DNS = foam.calcEigenvalues(aij_DNS, dataDNS_i['k'])
+            aneigVal_DNS = foam.calcEigenvalues(ReStress_DNS, dataDNS_i['k'])
             baryMap_DNS = foam.barycentricMap(aneigVal_DNS)
 
-            aneigVal_RANS = foam.calcEigenvalues(dataRANS_aij, dataRANS_k)
+            aneigVal_RANS = foam.calcEigenvalues(tau_RANS, dataRANS_k)
             baryMap_RANS = foam.barycentricMap(aneigVal_RANS)
 
             
@@ -283,12 +285,12 @@ def response(case, Re, TurbModel, time_end, nx, ny, train):
                     dataRANS_aij[:,:,j,k] = tau_RANS[:,:,j,k]/(2.*dataRANS_k[j,k]) - np.diag([1/3.,1/3.,1/3.])
 
         
-            eigVal_DNS = foam.calcEigenvalues(aij_DNS, dataDNS_i['k'])
+            eigVal_DNS = foam.calcEigenvalues(ReStress_DNS, dataDNS_i['k'])
             print(np.shape(eigVal_DNS))
             baryMap_DNS = foam.barycentricMap(eigVal_DNS)
             print(np.shape(baryMap_DNS))
 
-            eigVal_RANS = foam.calcEigenvalues(dataRANS_aij, dataRANS_k)
+            eigVal_RANS = foam.calcEigenvalues(tau_RANS, dataRANS_k)
             baryMap_RANS = foam.barycentricMap(eigVal_RANS)
             print(np.shape(baryMap_RANS))
             baryMap_discr = foam.baryMap_discr(baryMap_RANS, baryMap_DNS)
