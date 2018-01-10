@@ -320,7 +320,9 @@ TurbModel = 'kOmega'
 f = features(case, Re_train, TurbModel='kOmega', time_end=40000, nx=150, ny=150)
 X_train = features('SquareDuct', Re_train, TurbModel='kOmega', time_end=40000, nx=150, ny=150)
 
+
 case = 'ConvergingDivergingChannel'
+
 Re = [12600]
 TurbModel = ='kOmega'
 dir_RANS  = home + ('%s' % case) + '/' + ('Re%i_%s_100' % (Re,TurbModel))

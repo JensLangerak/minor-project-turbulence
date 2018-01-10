@@ -22,10 +22,10 @@ The output are the outputs of the last #outputs (currently 2) nodes.
 """
 
 import math
-
+import numpy as np
 node_size = 3  # How many numbers are needed for one node. Two for the input and one to determine the operation.
 outputs = 2  # Number of outputs that should be returned.
-operations = 3  # Number of supported operations.
+operations = 4  # Number of supported operations.
 
 operation_list = ['+', '-', '*', '/']
 
@@ -128,11 +128,12 @@ def calculate_input(cgp_program, input_id, inputs, nr_features):
         output = a-b
     elif o =='*':
         output = a*b
-    else: 
-        print(o)
-        if (b == 0) :
-            output=a/sqrt((1+b**2)) #safe division
-        output = a/b
+    else:
+        if (b > 0) :
+            off = 0.00001
+        else:
+            off = -0.00001
+        output=a/(b + off) #safe division
 
     # Store the output in the inputs list.
     inputs[input_id] = output
@@ -147,7 +148,7 @@ def calculate_input(cgp_program, input_id, inputs, nr_features):
 #output2ref=nrnodes-1
 
     
-def nodes_used(outputref, nodelist,lst):
+def nodes_used(outputref, nodelist,lst, nr_features):
     if outputref< nr_features :
         return nodelist
     outputref-=nr_features
@@ -168,7 +169,7 @@ def nodes_used(outputref, nodelist,lst):
 #sol=[1, 3, '-', 2, 2, '+', 1, 0, '+', 3, 1, '*', 5, 0, '-', 1, 4, '+', 5, 7, '-', 7, 4, '+', 7, 7, '-', 7, 12, '+', 13, 2, '-', 6, 12, '-', 3, 15, '-', 12, 13, '*', 17, 4, '-', 14, 12, '-', 19, 8, '*', 11, 5, '-', 12, 19, '-', 10, 5, '+']
 
 
-nr_features=4
+#nr_features=4
 
 def createListnodes(sol, nr_features):
     #print("sol")
@@ -178,8 +179,8 @@ def createListnodes(sol, nr_features):
     nodelist=nrnodes*[0]
     output1ref=nrnodes-2
     output2ref=nrnodes-1
-    onlynodes=nodes_used(output1ref+nr_features, nodelist, sol)
-    solution=nodes_used(output2ref+nr_features, onlynodes, sol)
+    onlynodes=nodes_used(output1ref+nr_features, nodelist, sol, nr_features)
+    solution=nodes_used(output2ref+nr_features, onlynodes, sol, nr_features)
     #print("Tes")
     #print (solution)
     #turn nodelist into list size of solution:
@@ -194,6 +195,38 @@ def createListnodes(sol, nr_features):
                 newlist[node_size*i+j]=1
                 newlist[node_size*i+j]=1  
     return newlist
+
+
+def complete_translate(cgp_program, nr_features, nr_nodes):
+    completeTranslate = (nr_features + nr_nodes) * [""]
+    for i in range(nr_features):
+        completeTranslate[i] = "f_g[offset+" + str(i) + "]"
+
+    for n in range(nr_nodes):
+        base = n * node_size
+        d = n + nr_features
+        completeTranslate[d] = "(" + completeTranslate[cgp_program[base]] + " " + cgp_program[base + 2] + " " + \
+                               completeTranslate[cgp_program[base + 1]] + ")"
+
+    return completeTranslate
+
+
+def translate_operation_to_ints(cgp_program):
+    res = np.empty_like(cgp_program)
+    for i in range(len(cgp_program)):
+        k = cgp_program[i]
+        if k == '+':
+            k = 0
+        if k == '-':
+            k = 1
+        if k == '*':
+            k = 2
+        if k == '/':
+            k = 3
+        res[i] = k
+    return res
+
+
 
 
 #createListnodes(sol, nr_features)
