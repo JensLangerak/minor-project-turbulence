@@ -200,7 +200,7 @@ def createListnodes(sol, nr_features):
 def complete_translate(cgp_program, nr_features, nr_nodes):
     completeTranslate = (nr_features + nr_nodes) * [""]
     for i in range(nr_features):
-        completeTranslate[i] = "f_g[offset+" + str(i) + "]"
+        completeTranslate[i] = "f" + str(i + 1) + ""
 
     for n in range(nr_nodes):
         base = n * node_size

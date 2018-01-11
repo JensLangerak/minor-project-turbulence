@@ -343,8 +343,11 @@ Y_train = response('PeriodicHills', Re_train, TurbModel='kOmega', time_end=30000
 #regr.fit(X_train, Y_train)
 #print("Feature importance :", regr.feature_importances_)
 
-evolver = ev.GCPEvolver(half_population=250, nr_nodes=50, mutation_chance=0.02, max_score=700000000, nr_features=9)
+evolver = ev.GCPEvolver(half_population=250, nr_nodes=200, mutation_chance=0.002, max_score=700000000, nr_features=9)
 
+X_train = X_train 
+dim = np.shape(X_train)
+#np.append(X_train, np.repeat([10], dim[1]))
 sol = evolver.evolve(X_train, Y_train)
 
 
@@ -353,6 +356,9 @@ Re_test = [Re[0]]
 print(Re_test)
 
 test_X = features('PeriodicHills', Re_test, TurbModel='kOmega', time_end=30000, nx=140, ny=150)
+test_X = test_X
+dim = np.shape(test_X)
+#np.append(test_X, np.repeat([10], dim[1]))
 test_discr = evolver.predict(sol, test_X)
 test_discr = np.reshape(test_discr.swapaxes(1, 0), (2, 140, 150))
 
@@ -361,9 +367,9 @@ baryMap_RANS, baryMap_DNS, baryMap_discr = response('PeriodicHills', Re_test, Tu
 
 
 # Plots
-tra = ev.cgp.complete_translate(sol, 9, 10)
-print (tra[10 + 9 -1])
-print (tra[10 + 9 -2])
+tra = ev.cgp.complete_translate(sol, evolver.nr_features, evolver.nr_nodes)
+print (tra[evolver.nr_nodes + evolver.nr_features -1])
+print (tra[evolver.nr_nodes + evolver.nr_features -2])
 
 plt.figure()
 plt.title('DNS %s_Re%i' % (case, Re_test[0]))
