@@ -226,6 +226,103 @@ class GCPEvolver:
         """
         return self.openCLExecutor.predict(solution, features)
 
+    def fill_nodes_used(self, solution, nodes_used, input_nr):
+        if input_nr < self.nr_features:
+            return
+        node_nr = input_nr - self.nr_features
+        if nodes_used[node_nr] == 1:
+            return
+        else:
+            nodes_used[node_nr] = 1
+            self.fill_nodes_used(solution, nodes_used, solution[node_nr * self.node_size])
+            self.fill_nodes_used(solution, nodes_used, solution[node_nr * self.node_size + 1])
+            
+        
+    def replace_index(self, solution, original_input_index, new_input_index, replaced):
+        for i in range(len(solution)):
+            if i % self.node_size == self.node_size - 1:
+                continue
+            if solution[i] == original_input_index and replaced[i] == 0:
+                replaced[i] = 1
+                solution[i] = new_input_index
+    
+    def rearange_population(self, population):
+        total_used = 0
+        for i in range(math.floor(len(population))):
+            nodes_used = np.zeros(self.nr_nodes)
+            solution = population[i]
+            self.fill_nodes_used(solution, nodes_used, self.nr_nodes - 1 + self.nr_features)
+            self.fill_nodes_used(solution, nodes_used, self.nr_nodes - 2+ self.nr_features)
+            used = nodes_used.sum()
+            total_used += used
+
+            average_gap = (self.nr_nodes - 2) / (used - 2)
+
+            new_solution = [None] * len(solution)
+            last_index = self.nr_nodes - 1
+            map = [-1] * (self.nr_features + self.nr_nodes)
+            for k in range(self.nr_features):
+                map[k] = k
+            if (last_index >= 0):
+                new_solution[last_index * self.node_size] = solution[last_index * self.node_size]
+                new_solution[last_index * self.node_size + 1] = solution[last_index * self.node_size + 1]
+                new_solution[last_index * self.node_size + 2] = solution[last_index * self.node_size + 2]
+                map[last_index + self.nr_features] = last_index + self.nr_features
+
+            last_index = last_index - 1
+            if (last_index >= 0):
+                new_solution[last_index * self.node_size] = solution[last_index * self.node_size]
+                new_solution[last_index * self.node_size + 1] = solution[last_index * self.node_size + 1]
+                new_solution[last_index * self.node_size + 2] = solution[last_index * self.node_size + 2]
+                map[last_index + self.nr_features] = last_index + self.nr_features
+
+            used_count = 0
+            replaced = np.zeros(len(solution))
+            for j in range(self.nr_nodes - 2 - 1, -1, -1):
+                if nodes_used[j] == 1:
+                    used_count += 1
+                    new_index = math.floor(last_index - (average_gap) * used_count)
+                    new_solution[new_index * self.node_size] = solution[j * self.node_size]
+                    new_solution[new_index * self.node_size + 1] = solution[j * self.node_size + 1]
+                    new_solution[new_index * self.node_size + 2] = solution[j * self.node_size + 2]
+                    map[j+ self.nr_features] = new_index + self.nr_features
+                    #self.replace_index(new_solution, j + self.nr_features, new_index + self.nr_features, replaced)
+            last_node = self.nr_nodes - 2 - 1
+            for j in range(self.nr_nodes - 2 - 1, -1, -1):
+                if nodes_used[j] == 0:
+                    while new_solution[last_node * self.node_size] is not None and new_solution[last_node * self.node_size] != '':
+                        last_node = last_node-1
+                    new_solution[last_node * self.node_size] = solution[j * self.node_size]
+                    new_solution[last_node * self.node_size + 1] = solution[j * self.node_size + 1]
+                    new_solution[last_node * self.node_size + 2] = solution[j * self.node_size + 2]
+                    map[j+ self.nr_features] = last_node + self.nr_features
+                    #self.replace_index(new_solution, j + self.nr_features, last_node + self.nr_features, replaced)
+
+            for j in range(self.nr_nodes) :
+                v1 = new_solution[j * self.node_size]
+                v2 = new_solution[j * self.node_size + 1]
+                new_solution[j * self.node_size] = map[v1]
+                new_solution[j * self.node_size + 1] = map[v2]
+
+            nodes_used2 = np.zeros(self.nr_nodes)
+            self.fill_nodes_used(new_solution, nodes_used2, self.nr_nodes - 1 + self.nr_features)
+            self.fill_nodes_used(new_solution, nodes_used2, self.nr_nodes - 2 + self.nr_features)
+
+            # debug code print result
+
+            tran = cgp.complete_translate(solution, self.nr_features, self.nr_nodes)
+            or1 = (tran[self.nr_nodes + self.nr_features - 1])
+            or2 = (tran[self.nr_nodes + self.nr_features - 2])
+
+            tran = cgp.complete_translate(new_solution, self.nr_features, self.nr_nodes)
+            n1 = (tran[self.nr_nodes + self.nr_features - 1])
+            n2 = (tran[self.nr_nodes + self.nr_features - 2])
+            if (or1 != n1 or or2 != n2):
+                raise ValueError('A very specific bad thing happened.')
+
+            population[i] = new_solution
+        print("Average number of used nodes: ", total_used / self.population_size, "")
+
     def evolve(self, features, reference):
         """
         Use an evolutionary strategy to find a solutions that can derive the reference (training data) from features.
@@ -237,14 +334,15 @@ class GCPEvolver:
         population = self.create_base_population(self.population_size)
         best_fitness_score = -1
         best_solution = population[0]  # best seen solution
-
+        backup = population
+        
         # create object that can exectute the code on the gpu
         self.openCLExecutor = OpenCLExecutor(features, reference, self.nr_features, self.nr_nodes)
 
         # Simulate the generations in the evolution process.
         try:
             print("Start evolution, press ctrl-c to stop")
-            for g in range(30000):
+            for g in range(1000000):
                 # check if done
                 if best_fitness_score != -1 and best_fitness_score > self.target_fitness_score:
                     break
@@ -278,6 +376,18 @@ class GCPEvolver:
                       fitness_list[self.half_population][1], ", diversity: ", "") #diversity(population))
 
                 population = self.create_next_generation(fitness_list, population, best_solution)
+               # if g % 100 == 0:
+               #     if not np.isfinite(fitness_list[0][1]):
+               #         print ("Replace population with backup")
+               #         population = backup
+               #     else:
+               #         backup = population
+               #         self.rearange_population(population)
+               #         nodes_used2 = np.zeros(self.nr_nodes)
+               #         self.fill_nodes_used(best_solution, nodes_used2, self.nr_nodes - 1 + self.nr_features)
+               #         self.fill_nodes_used(best_solution, nodes_used2, self.nr_nodes - 2 + self.nr_features)
+               #         print("Nodes used for best: ", np.sum(nodes_used2))
+
         # Stop when ctrl-c is pressed
         except KeyboardInterrupt:
             print("Evolution stopped, processing results...")
@@ -319,28 +429,31 @@ class OpenCLExecutor:
               int op  = program[i * 3 + 2];
               float i1 = inputs[id1];
               float i2 = inputs[id2];
-              if(op == 0)
+              if(op == 0) {
                   inputs[i + nr_features] = i1 + i2;
-              if(op == 1)
+              } else if(op == 1) {
                   inputs[i + nr_features] = i1 - i2;
-              if(op == 2)
+              } else if(op == 2) {
                   inputs[i + nr_features] = i1 * i2;
-              if(op == 3) {
-                float safe_offset = (i2 > 0) ? FLT_EPSILON : -FLT_EPSILON;
+              } else if(op == 3) {
+                float safe_offset = 0;//(i2 > 0) ? FLT_EPSILON : -FLT_EPSILON;
                 inputs[i + nr_features] = i1 / (i2 + safe_offset);    
               }                  
           }
           float result1= inputs[nr_features + nr_nodes -1] - r_g[2 * gid];
           float result2= inputs[nr_features + nr_nodes -2] - r_g[2 * gid + 1];
           float result = sqrt(result1 * result1 + result2 * result2);
+
           //res_g[gid] = 1 / (result + 0.02);
+          //res_g[gid]  = 1 / (result + 0.9) - result;
+
           res_g[gid] = -result;
         }
         """).build()
 
         self.program_predict = cl.Program(self.ctx, """
         __kernel void predict(
-           __global const float *f_g, __global float *res_g, __global int *program)
+           __global const float *f_g, __global float *result_predict_g, __global int *program)
         {
           int nr_features = """ + str(nr_features) + """;
           int nr_nodes = """ + str(nr_nodes) + """;
@@ -350,25 +463,40 @@ class OpenCLExecutor:
           for (int i = 0; i < nr_features; i++) {
               inputs[i] = f_g[offset + i];
           }
+          
+         // if (gid == 0) {
+
           for (int i = 0; i < nr_nodes; i++) {
+         // if (i == 0) {
               int id1 = program[i * 3];
               int id2 = program[i * 3 + 1];
               int op  = program[i * 3 + 2];
+              //          result_predict_g[0] = id1;
+              //        result_predict_g[1] = id2;
+              //         result_predict_g[2] = op;
               float i1 = inputs[id1];
               float i2 = inputs[id2];
-              if(op == 0)
+             // result_predict_g[3] = i1;
+             // result_predict_g[4] = i2;
+              if(op == 0) {
                   inputs[i + nr_features] = i1 + i2;
-              if(op == 1)
+              //    result_predict_g[5] = 5;
+              } else if(op == 1) {
                   inputs[i + nr_features] = i1 - i2;
-              if(op == 2)
+             //                       result_predict_g[6] = 5;
+              } else if(op == 2) {
                   inputs[i + nr_features] = i1 * i2;
-              if(op == 3) {
-                float safe_offset = (i2 > 0) ? FLT_EPSILON : -FLT_EPSILON;
-                inputs[i + nr_features] = i1 / (i2 + safe_offset);    
-              }                  
+            //                        result_predict_g[7] = 5;
+              } else if(op == 3) {
+                float safe_offset = 0;//(i2 > 0) ? FLT_EPSILON : -FLT_EPSILON;
+                inputs[i + nr_features] = i1 / (i2 + safe_offset);  
+            //                      result_predict_g[5] = 8;
+              }     
+           //   }
           }
-          res_g[gid * 2] =  inputs[nr_features + nr_nodes -1];
-          res_g[gid * 2 + 2] = inputs[nr_features + nr_nodes -2];
+          result_predict_g[gid * 2] =  inputs[nr_features + nr_nodes -1];
+          result_predict_g[gid * 2 + 1] = inputs[nr_features + nr_nodes -2];
+         // }
         }
         """).build()
 
@@ -384,11 +512,16 @@ class OpenCLExecutor:
                                                    self.features_g,
                                                    self.result_g, translated_g)
             cl.enqueue_copy(self.queue, self.result_np, self.result_g)
-            fitness_list[i] = (i, np.sum(self.result_np) / self.nr_points)
+            x = self.result_np[~np.isnan(self.result_np)]
+            x = x[np.isfinite(x)]
+            if (len(x) < self.nr_points * 0.99):
+                fitness_list[i] = (i, -np.inf)
+            else:
+                fitness_list[i] = (i, np.sum(x / len(x)))
         return fitness_list
 
     def predict(self, solution, features):
-        result_predict_np = np.empty((len(features), 2))
+        result_predict_np = np.empty((len(features), 2),  dtype=np.float32)
         result_predict_g = cl.Buffer(self.ctx, self.mf.WRITE_ONLY, result_predict_np.nbytes)
 
         translated_np = np.asarray(cgp.translate_operation_to_ints(solution), dtype=np.int32)
@@ -399,11 +532,8 @@ class OpenCLExecutor:
         self.program_predict.predict(self.queue, result_predict_np.shape, None, f2_g, result_predict_g, translated_g)
         cl.enqueue_copy(self.queue, result_predict_np, result_predict_g)
         return result_predict_np
+'''
 
-
-"""
-   Generate test data
-   """
 ref = []
 f = []
 x = np.linspace(-1, 1, 1000)
@@ -423,3 +553,44 @@ result = evolver.evolve(f, ref)
 tra = cgp.complete_translate(result, evolver.nr_features, evolver.nr_nodes)
 print (tra[evolver.nr_nodes+evolver.nr_features -1])
 print (tra[evolver.nr_nodes+evolver.nr_features -2])
+'''
+
+'''
+ref = []
+f = []
+scale = 100
+xs = []
+for i in range(-5*scale, 5*scale, 1):
+    x = i / scale
+    f += [[x]]
+    #res = 2 * x - 3 * y + 4 * z - u * x
+    res = math.tanh(x)
+    ref += [[res, res]]
+    xs += [x]
+
+
+evolver = GCPEvolver(half_population=250, nr_nodes=200, mutation_chance=0.002, max_score=700000000, nr_features=1)
+
+result = evolver.evolve(f, ref)
+
+
+#debug code print result
+tran = cgp.complete_translate(result, evolver.nr_features, evolver.nr_nodes)
+
+print( tran[ evolver.nr_nodes + evolver.nr_features- 1])
+print (" \n\r" )
+print( tran[ evolver.nr_nodes + evolver.nr_features- 2])
+
+predict = evolver.predict(result, f)
+
+refp = [row[0] for row in ref]
+r1 = [row[0] for row in predict]
+r2 = [row[1] for row in predict]
+
+plt.axis((-5,5,-2,2))
+plt.plot(xs, refp, 'r')
+plt.plot(xs, r1, 'b')
+plt.plot(xs, r2, 'g')
+plt.show()
+'''
+
