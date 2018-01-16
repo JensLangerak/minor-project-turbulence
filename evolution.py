@@ -161,7 +161,7 @@ class GCPEvolver:
     def get_index(self):
         index = self.population_size
         while index > self.population_size - 1:
-            index = math.floor(abs(random.normalvariate(0, 0.15 * self.population_size)))
+            index = math.floor(abs(random.normalvariate(0, 0.05 * self.population_size)))
         return index
 
     def create_next_generation(self, fitness_list, population, best_solution):
@@ -333,7 +333,7 @@ class OpenCLExecutor:
           float result1= inputs[nr_features + nr_nodes -1] - r_g[2 * gid];
           float result2= inputs[nr_features + nr_nodes -2] - r_g[2 * gid + 1];
           float result = sqrt(result1 * result1 + result2 * result2);
-          //result = 1 / (result + 0.02);
+          //res_g[gid] = 1 / (result + 0.02);
           res_g[gid] = -result;
         }
         """).build()
@@ -404,37 +404,22 @@ class OpenCLExecutor:
 """
    Generate test data
    """
-'''
 ref = []
 f = []
-for x in range(1, 20, 1):
-    for y in range(1, 20, 1):
-        for z in range(1, 20, 1):
-            for u in range(1, 20, 1):
-                f += [[x, y, z, u]]
-                #res = 2 * x - 3 * y + 4 * z - u * x
-                res = math.cos(x)
-                ref += [[res, res]]
+x = np.linspace(-1, 1, 1000)
+for i in range(len(x)):
+   
+    f += [[x[i]]]
+    #res = 2 * x - 3 * y + 4 * z - u * x
+    res = math.tanh(x[i])
+    ref += [[res, res]]
 
 
-evolver = GCPEvolver(half_population=250, nr_nodes=50, mutation_chance=0.02, max_score=700000000, nr_features=4)
+evolver = GCPEvolver(half_population=250, nr_nodes=50, mutation_chance=0.01, max_score=10000, nr_features=1)
 
 result = evolver.evolve(f, ref)
 
-#debug code print result
-tran =  result
-for n in range(evolver.nr_nodes):
-    base = n * evolver.node_size
-    print(n + len(f[0]), " : ", tran[base], " ",  tran[base + 1], " ",  tran[base + 2], " ")
-
-completeTranslate = (len(f[0]) + evolver.nr_features) * [""]
-for t in range(len(f[0])):
-    completeTranslate[t] = "F" + str(t)
-
-for n in range(evolver.nr_nodes):
-    base = n * evolver.node_size
-    d = n + len(f[0])
-    completeTranslate[d] = "(" + completeTranslate[tran[base]] + " " + tran[base + 2] + " " + completeTranslate[tran[base + 1]] + ")"
-for t in range(len(completeTranslate)):
-    print(t,  " ", completeTranslate[t])
-'''
+# Plots
+tra = cgp.complete_translate(result, evolver.nr_features, evolver.nr_nodes)
+print (tra[evolver.nr_nodes+evolver.nr_features -1])
+print (tra[evolver.nr_nodes+evolver.nr_features -2])

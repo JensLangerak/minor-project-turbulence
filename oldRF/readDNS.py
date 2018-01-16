@@ -27,12 +27,10 @@ def loadData_avg(dataset):
         reader = csv.reader(f)
         names = reader.next()
         ubulk = reader.next()
-        print names
         data_list = np.zeros([len(names), 100000])
         for i,row in enumerate(reader):
             if row:
                 data_list[:,i] = np.array([float(ii) for ii in row])
-    print i
     data_list = data_list[:,:i+1] 
     data = {}
     for j,var in enumerate(names):

@@ -507,15 +507,40 @@ def eigenvectorToEuler(eigVec):
     # get the euler angles (phi) for the eigenvectors (use to train the random forest)
     # TODO: make exception for non-2D mesh
     phi = np.zeros([3,eigVec.shape[2],eigVec.shape[3]])
-    
+   
+    epsilon = 1e-6
     FOR1 = np.array([[1,0,0],[0,1,0],[0,0,1]]) #standard frame of reference
+    
     for i1 in range(eigVec.shape[2]):
         for i2 in range(eigVec.shape[3]):
             R = np.dot(np.linalg.inv(FOR1),eigVec[:,:,i1,i2])
-            phi[0,i1,i2] = np.arctan2(R[1,0],R[0,0]) #alpha (rotates the z-axis)
-            phi[1,i1,i2] = np.arctan2(-R[2,0],np.sqrt(R[2,1]**2+R[2,2]**2))
-            phi[2,i1,i2] = np.arctan2(R[2,1],R[2,2]) #gamma (rotates the x-axis)
+            Zxy = np.sqrt(R[0,2]**2+R[1,2]**2)
+            if Zxy < epsilon:
+                phi[0,i1,i2] = np.arctan2(R[0,1]*R[1,2] - R[1,1]*R[0,2], R[0,0]*R[1,2] - R[1,0]*R[0,2]) #alpha (rotates the z-axis)
+                phi[1,i1,i2] = np.arctan2(Zxy, R[2,2])
+                phi[2,i1,i2] = -np.arctan2(R[0,2],R[1,2]) #gamma (rotates the x-axis)
+            else:
+                phi[0,i1,i2] = 0
+                phi[1,i1,i2] = 0. if R[2,2] > 0 else np.pi
+                phi[2,i1,i2] = -np.arctan2(R[2,1],R[0,0]) #gamma (rotates the x-axis)
+                
     return phi
+
+'''
+def eulerToEigenvector(phi):
+    # reconstruct eigenvector from given euler angles
+    # TODO: make exception for non-2D mesh
+    FOR1 = np.array([[1,0,0],[0,1,0],[0,0,1]]) #standard frame of reference
+    eigVec = np.zeros([3,3,phi.shape[1],phi.shape[2]]) #initialize eigenvector
+    for i1 in range(phi.shape[1]):
+        for i2 in range(phi.shape[2]):
+            #rotation matrix:
+            Rx = np.array([[1,0,0],[0, np.cos(phi[2,i1,i2]), -np.sin(phi[2,i1,i2])],[0, np.sin(phi[2,i1,i2]), np.cos(phi[2,i1,i2])]])
+            Ry = np.array([[np.cos(phi[1,i1,i2]),0,np.sin(phi[1,i1,i2])],[0,1,0],[-np.sin(phi[1,i1,i2]),0,np.cos(phi[1,i1,i2])]])
+            Rz = np.array([[np.cos(phi[0,i1,i2]),-np.sin(phi[0,i1,i2]),0],[np.sin(phi[0,i1,i2]),np.cos(phi[0,i1,i2]),0],[0,0,1]])
+            eigVec[:,:,i1,i2] = np.dot(Rz,np.dot(Ry,np.dot(Rx,FOR1)))
+    return 
+'''
 
 def eulerToEigenvector(phi):
     # reconstruct eigenvector from given euler angles
