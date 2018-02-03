@@ -35,21 +35,22 @@ class Graph:
         for i in range(10):
             self.ys.append([])
         self.ax = []
-        self.fig = plt.figure()
-        plt.interactive(False)
-        for i in range(len(self.ys)):
-            self.ax.append(self.fig.add_subplot(111))
-        plt.ion()
-        self.fig.show()
-        self.fig.canvas.draw()
+        #self.fig = plt.figure()
+        #plt.interactive(False)
+        #for i in range(len(self.ys)):
+        #    self.ax.append(self.fig.add_subplot(111))
+        #plt.ion()
+        #self.fig.show()
+        #self.fig.canvas.draw()
 
     def tick(self):
+        t=0
         #  for i in range(len(ys)):
         #      ax[i].clear()
-        for i in range(len(self.ys)):
-            self.ax[i].plot(self.xs, self.ys[i])
-        self.fig.canvas.draw()
-        plt.pause(0.001)
+        #for i in range(len(self.ys)):
+        #    self.ax[i].plot(self.xs, self.ys[i])
+        #self.fig.canvas.draw()
+        #plt.pause(0.001)
 
 
 class GCPEvolver:
@@ -71,9 +72,9 @@ class GCPEvolver:
         self.target_fitness_score = max_score  # stop when error is smaller than this value.
         self.node_size = 3  # size of a node in the chromosome
 
-        self.population_size = 2 * self.half_population  # + 1 # total population size, +1 for the best previous solution
+        self.population_size = 2 * self.half_population  + 1 # total population size, +1 for the best previous solution
         self.nr_features = nr_features
-        self.graph = None #Graph(10)
+        self.graph = Graph(1)
 
         self.openCLExecutor = None
 
@@ -161,7 +162,8 @@ class GCPEvolver:
     def get_index(self):
         index = self.population_size
         while index > self.population_size - 1:
-            index = math.floor(abs(random.normalvariate(0, 0.15 * self.population_size)))
+            #index = math.floor(abs(random.normalvariate(0, 0.15 * self.population_size)))
+            index = math.floor(np.random.exponential(0.15 * self.population_size))
         return index
 
     def create_next_generation(self, fitness_list, population, best_solution):
@@ -201,6 +203,10 @@ class GCPEvolver:
                 else:
                     child_1[j] = parent_2[j]
                     child_2[j] = parent_1[j]
+                    
+                # comment for cross   
+                child_1[j] = best_solution[j]
+                child_2[j] = best_solution[j]
 
                 # apply mutation
                 if random.uniform(0, 1) < self.mutation_chance:
@@ -214,7 +220,7 @@ class GCPEvolver:
             next_generation[2 * i + 1] = child_2
 
         # add best solution to the next generation
-        #next_generation[population_size - 1] = best_solution
+        next_generation[self.population_size - 1] = best_solution
         return next_generation
 
     def predict(self, solution, features):
@@ -281,28 +287,41 @@ class GCPEvolver:
             for j in range(self.nr_nodes - 2 - 1, -1, -1):
                 if nodes_used[j] == 1:
                     used_count += 1
-                    new_index = math.floor(last_index - (average_gap) * used_count)
+                    new_index = math.floor(last_index - (average_gap) * used_count + 0.000000000001)
                     new_solution[new_index * self.node_size] = solution[j * self.node_size]
                     new_solution[new_index * self.node_size + 1] = solution[j * self.node_size + 1]
                     new_solution[new_index * self.node_size + 2] = solution[j * self.node_size + 2]
                     map[j+ self.nr_features] = new_index + self.nr_features
                     #self.replace_index(new_solution, j + self.nr_features, new_index + self.nr_features, replaced)
             last_node = self.nr_nodes - 2 - 1
+            '''
             for j in range(self.nr_nodes - 2 - 1, -1, -1):
                 if nodes_used[j] == 0:
                     while new_solution[last_node * self.node_size] is not None and new_solution[last_node * self.node_size] != '':
                         last_node = last_node-1
-                    new_solution[last_node * self.node_size] = solution[j * self.node_size]
-                    new_solution[last_node * self.node_size + 1] = solution[j * self.node_size + 1]
-                    new_solution[last_node * self.node_size + 2] = solution[j * self.node_size + 2]
-                    map[j+ self.nr_features] = last_node + self.nr_features
+                    new_solution[last_node * self.node_size] = solution[last_node * self.node_size]
+                    new_solution[last_node * self.node_size + 1] = solution[last_node * self.node_size + 1]
+                    new_solution[last_node * self.node_size + 2] = solution[last_node * self.node_size + 2]
+                    map[j+ self.nr_features] = j + self.nr_features
                     #self.replace_index(new_solution, j + self.nr_features, last_node + self.nr_features, replaced)
+            '''
+            for j in range(len(new_solution)) :
+                if (new_solution[j] is None):
+                    new_solution[j] = solution[j]
 
             for j in range(self.nr_nodes) :
                 v1 = new_solution[j * self.node_size]
                 v2 = new_solution[j * self.node_size + 1]
-                new_solution[j * self.node_size] = map[v1]
-                new_solution[j * self.node_size + 1] = map[v2]
+
+                if (v1 is None or v2 is None):
+                    t = 3
+
+                if map[v1] != -1:
+                    new_solution[j * self.node_size] = map[v1] % ( j + self.nr_features)
+                if map[v2] != -1:
+                    new_solution[j * self.node_size + 1] = map[v2] % ( j + self.nr_features)
+                #new_solution[j * self.node_size] = map[v1] % (self.nr_nodes + self.nr_features)
+                #new_solution[j * self.node_size + 1] = map[v2] % (self.nr_nodes + self.nr_features)
 
             nodes_used2 = np.zeros(self.nr_nodes)
             self.fill_nodes_used(new_solution, nodes_used2, self.nr_nodes - 1 + self.nr_features)
@@ -342,7 +361,7 @@ class GCPEvolver:
         # Simulate the generations in the evolution process.
         try:
             print("Start evolution, press ctrl-c to stop")
-            for g in range(1000000):
+            for g in range(200000):
                 # check if done
                 if best_fitness_score != -1 and best_fitness_score > self.target_fitness_score:
                     break
@@ -369,24 +388,32 @@ class GCPEvolver:
                     self.graph.xs.append(g)
                     interval = math.floor(self.population_size / len(self.graph.ys))
                     for i in range(len(self.graph.ys)):
-                        self.graph.ys[i].append(fitness_list[interval * i][1])
+                            self.graph.ys[i].append(-1 / fitness_list[interval * i][1])
                     self.graph.tick()
 
                 print("Generation ", g, ", smallest error: ", fitness_list[0][1], ", error median: ",
                       fitness_list[self.half_population][1], ", diversity: ", "") #diversity(population))
 
-                population = self.create_next_generation(fitness_list, population, best_solution)
-               # if g % 100 == 0:
-               #     if not np.isfinite(fitness_list[0][1]):
-               #         print ("Replace population with backup")
-               #         population = backup
-               #     else:
-               #         backup = population
-               #         self.rearange_population(population)
-               #         nodes_used2 = np.zeros(self.nr_nodes)
-               #         self.fill_nodes_used(best_solution, nodes_used2, self.nr_nodes - 1 + self.nr_features)
-               #         self.fill_nodes_used(best_solution, nodes_used2, self.nr_nodes - 2 + self.nr_features)
-               #         print("Nodes used for best: ", np.sum(nodes_used2))
+                population = self.create_next_generation(fitness_list, population, population[fitness_list[0][0]])
+                if False and g % 10 == 0:
+                    if not np.isfinite(fitness_list[0][1]):
+                        print ("Replace population with backup")
+                        population = backup
+                    else:
+                        backup = population
+                        self.rearange_population(population)
+                        
+                        fitness_list2 = self.openCLExecutor.execute(population)
+                        fitness_list2.sort(key=lambda i: i[1], reverse=True) 
+                        
+                        fitness_list = self.openCLExecutor.execute(backup)
+                        fitness_list.sort(key=lambda i: i[1], reverse=True)
+                        if (fitness_list2[0][1]!= fitness_list[0][1]):
+                            br = 0
+                        nodes_used2 = np.zeros(self.nr_nodes)
+                        self.fill_nodes_used(best_solution, nodes_used2, self.nr_nodes - 1 + self.nr_features)
+                        self.fill_nodes_used(best_solution, nodes_used2, self.nr_nodes - 2 + self.nr_features)
+                        print("Nodes used for best: ", np.sum(nodes_used2))
 
         # Stop when ctrl-c is pressed
         except KeyboardInterrupt:
@@ -438,14 +465,19 @@ class OpenCLExecutor:
               } else if(op == 3) {
                 float safe_offset = 0;//(i2 > 0) ? FLT_EPSILON : -FLT_EPSILON;
                 inputs[i + nr_features] = i1 / (i2 + safe_offset);    
-              }                  
+              } else if (op == 4) {
+               inputs[i + nr_features] = tanh(i1);
+              } else if(op == 5) {
+               inputs[i + nr_features] = cos(i1);
+              }
           }
           float result1= inputs[nr_features + nr_nodes -1] - r_g[2 * gid];
-          float result2= inputs[nr_features + nr_nodes -2] - r_g[2 * gid + 1];
-          float result = sqrt(result1 * result1 + result2 * result2);
-
-          //res_g[gid]  = 1 / (result + 0.9) - result;
-          res_g[gid] = -result;
+     //     float result2= inputs[nr_features + nr_nodes -2] - r_g[2 * gid + 1];
+       //   result1 /= sqrt(r_g[2 * gid] * r_g[2 * gid] + 0.00001);
+      //    float result = sqrt(result1 * result1 + result2 * result2);
+       //   result2 /= sqrt(r_g[2 * gid + 1] * r_g[2 * gid + 1] + 0.00001);
+         //     res_g[gid]  = 1 / (result + 0.2) - result;
+          res_g[gid] = -(sqrt(result1 * result1));
         }
         """).build()
 
@@ -489,7 +521,11 @@ class OpenCLExecutor:
                 float safe_offset = 0;//(i2 > 0) ? FLT_EPSILON : -FLT_EPSILON;
                 inputs[i + nr_features] = i1 / (i2 + safe_offset);  
             //                      result_predict_g[5] = 8;
-              }     
+              } else if (op == 4) {
+               inputs[i + nr_features] = tanh(i1);
+              } else if(op == 5) {
+               inputs[i + nr_features] = cos(i1);
+              }
            //   }
           }
           result_predict_g[gid * 2] =  inputs[nr_features + nr_nodes -1];
@@ -535,21 +571,21 @@ class OpenCLExecutor:
 """
    Generate test data
 """
-'''
+
 ref = []
 f = []
 scale = 100
 xs = []
-for i in range(-5*scale, 5*scale, 1):
+for i in range(-10*scale, 10*scale, 1):
     x = i / scale
     f += [[x]]
     #res = 2 * x - 3 * y + 4 * z - u * x
-    res = math.tanh(x)
+    res = math.tanh(2 + x) - 2
     ref += [[res, res]]
     xs += [x]
 
 
-evolver = GCPEvolver(half_population=250, nr_nodes=200, mutation_chance=0.002, max_score=700000000, nr_features=1)
+evolver = GCPEvolver(half_population=100, nr_nodes=200, mutation_chance=0.02, max_score=700000000, nr_features=1)
 
 result = evolver.evolve(f, ref)
 
@@ -567,9 +603,12 @@ refp = [row[0] for row in ref]
 r1 = [row[0] for row in predict]
 r2 = [row[1] for row in predict]
 
-plt.axis((-5,5,-2,2))
+plt.axis((-10,10,-4,2))
 plt.plot(xs, refp, 'r')
 plt.plot(xs, r1, 'b')
-plt.plot(xs, r2, 'g')
+#plt.plot(xs, r2, 'g')
 plt.show()
-'''
+
+plt.plot(evolver.graph.xs, evolver.graph.ys[0])
+
+#input()

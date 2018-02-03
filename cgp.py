@@ -27,7 +27,7 @@ node_size = 3  # How many numbers are needed for one node. Two for the input and
 outputs = 2  # Number of outputs that should be returned.
 operations = 4  # Number of supported operations.
 
-operation_list = ['+', '-', '*', '/']
+operation_list = ['+', '-', '*', '/', 'tanh', 'cos']
 
 def translate(nr_features, chromosome):
     """
@@ -223,6 +223,10 @@ def translate_operation_to_ints(cgp_program):
             k = 2
         if k == '/':
             k = 3
+        if k == 'tanh':
+            k = 4
+        if k == 'cos':
+            k = 5
         res[i] = k
     return res
 
