@@ -57,7 +57,7 @@ class GCPEvolver:
     """
     Class that handles the evolution process
     """
-    def __init__(self, half_population=250, nr_nodes=10, mutation_chance=0.02, max_score=700000000, nr_features=9):
+    def __init__(self, half_population=250, nr_nodes=10, mutation_chance=0.04, max_score=10000, nr_features=9):
         """
         Create a class that can be used to evolve a solution.
         :param half_population: size of half the population
@@ -566,7 +566,28 @@ class OpenCLExecutor:
         self.program_predict.predict(self.queue, result_predict_np.shape, None, f2_g, result_predict_g, translated_g)
         cl.enqueue_copy(self.queue, result_predict_np, result_predict_g)
         return result_predict_np
+'''
 
+ref = []
+f = []
+x = np.linspace(-1, 1, 1000)
+for i in range(len(x)):
+   
+    f += [[x[i]]]
+    #res = 2 * x - 3 * y + 4 * z - u * x
+    res = math.tanh(x[i])
+    ref += [[res, res]]
+
+
+evolver = GCPEvolver(half_population=250, nr_nodes=50, mutation_chance=0.01, max_score=10000, nr_features=1)
+
+result = evolver.evolve(f, ref)
+
+# Plots
+tra = cgp.complete_translate(result, evolver.nr_features, evolver.nr_nodes)
+print (tra[evolver.nr_nodes+evolver.nr_features -1])
+print (tra[evolver.nr_nodes+evolver.nr_features -2])
+'''
 
 """
    Generate test data
@@ -612,3 +633,4 @@ plt.show()
 plt.plot(evolver.graph.xs, evolver.graph.ys[0])
 
 #input()
+

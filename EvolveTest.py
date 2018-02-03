@@ -368,8 +368,11 @@ baryMap_RANS, baryMap_DNS, baryMap_discr = response('PeriodicHills', Re_test, Tu
 
 # Plots
 tra = ev.cgp.complete_translate(sol, evolver.nr_features, evolver.nr_nodes)
-print (tra[evolver.nr_nodes + evolver.nr_features -1])
-print (tra[evolver.nr_nodes + evolver.nr_features -2])
+
+print (tra[evolver.nr_nodes+evolver.nr_features -1])
+print (tra[evolver.nr_nodes+evolver.nr_features -2])
+
+
 
 plt.figure()
 plt.title('DNS %s_Re%i' % (case, Re_test[0]))
@@ -380,10 +383,10 @@ plt.show()
 
 plt.figure()
 plt.title("RANS %s_Re%i corrected" % (case, Re_test[0]))
+plt.xlim(-1, 1)
+plt.ylim(-1, 1)
 plt.plot(np.add(test_discr[0,:,:], baryMap_RANS[0,:,:]) ,np.add(test_discr[1,:,:],baryMap_RANS[1,:,:]),'b*')
 plt.plot([0,1,0.5,0],[0,0,np.sin(60*(np.pi/180)),0],'k-')
-plt.xlim((-1, 1))
-plt.ylim((-1, 1))
 plt.axis('equal')
 plt.show()
 
