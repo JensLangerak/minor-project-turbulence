@@ -193,7 +193,7 @@ def features(case, Re, TurbModel, time_end, nx, ny):
 def response(case, Re, TurbModel, time_end, nx, ny, train): 
     if train ==True:
         print('train = true')
-        Y = np.zeros((nx*len(Re)*ny, 6))
+        Y = np.zeros((nx*len(Re)*ny, 2))
         for i in range(len(Re)):
             if case == 'PeriodicHills':
                 dataset = home + ('%s' % (case)) + '/' + ('DATA_CASE_LES_BREUER') + '/' + ('Re_%i' % Re[i]) + '/' + ('Hill_Re_%i_Breuer.csv' % Re[i])
@@ -245,8 +245,8 @@ def response(case, Re, TurbModel, time_end, nx, ny, train):
             k_discr = np.reshape(( np.reshape((dataDNS_i['k'] - k_RANS).swapaxes(1,2), (nx*ny, 1), "F")).swapaxes(1,0), (nx*ny, 1))
         
             Y[i*nx*ny:(i+1)*nx*ny, 0:2] = baryMap_discr
-            Y[i*nx*ny:(i+1)*nx*ny, 2:5] = phi_discr
-            Y[i*nx*ny:(i+1)*nx*ny, 5] = k_discr[:,0]
+           # Y[i*nx*ny:(i+1)*nx*ny, 2:5] = phi_discr
+           # Y[i*nx*ny:(i+1)*nx*ny, 5] = k_discr[:,0]
             
 
         print('return Y')
@@ -343,7 +343,7 @@ Y_train = response('PeriodicHills', Re_train, TurbModel='kOmega', time_end=30000
 #regr.fit(X_train, Y_train)
 #print("Feature importance :", regr.feature_importances_)
 
-evolver = ev.GCPEvolver(half_population=100, nr_nodes=1000, mutation_chance=0.02, max_score=700000000, nr_features=9)
+evolver = ev.GCPEvolver(half_population=10, nr_nodes=1200, mutation_chance=0.02, max_score=700000000, nr_features=9)
 
 X_train = X_train 
 dim = np.shape(X_train)
@@ -352,7 +352,7 @@ sol = evolver.evolve(X_train, Y_train)
 
 
 # Testing
-Re_test = [Re[0]]
+Re_test = [Re[4]]
 print(Re_test)
 
 test_X = features('PeriodicHills', Re_test, TurbModel='kOmega', time_end=30000, nx=140, ny=150)
@@ -370,13 +370,14 @@ baryMap_RANS, baryMap_DNS, baryMap_discr = response('PeriodicHills', Re_test, Tu
 tra = ev.cgp.complete_translate(sol, evolver.nr_features, evolver.nr_nodes)
 
 print (tra[evolver.nr_nodes+evolver.nr_features -1])
+print("")
 print (tra[evolver.nr_nodes+evolver.nr_features -2])
 
 
 
 plt.figure()
 plt.title('DNS %s_Re%i' % (case, Re_test[0]))
-plt.plot(baryMap_DNS[0,:,:],baryMap_DNS[1,:,:],'b*')
+plt.plot(baryMap_DNS[0,50,:],baryMap_DNS[1,50,:],'b*')
 plt.plot([0,1,0.5,0],[0,0,np.sin(60*(np.pi/180)),0],'k-')
 plt.axis('equal')
 plt.show()
@@ -385,7 +386,7 @@ plt.figure()
 plt.title("RANS %s_Re%i corrected" % (case, Re_test[0]))
 plt.xlim(-1, 1)
 plt.ylim(-1, 1)
-plt.plot(np.add(test_discr[0,:,:], baryMap_RANS[0,:,:]) ,np.add(test_discr[1,:,:],baryMap_RANS[1,:,:]),'b*')
+plt.plot(np.add(test_discr[0,50,:], baryMap_RANS[0,50,:]) ,np.add(test_discr[1,50,:],baryMap_RANS[1,50,:]),'b*')
 plt.plot([0,1,0.5,0],[0,0,np.sin(60*(np.pi/180)),0],'k-')
 plt.axis('equal')
 plt.show()
@@ -410,3 +411,79 @@ plt.plot(test_discr[0,:,:],test_discr[1,:,:],'b*')
 plt.plot([0,1,0.5,0],[0,0,np.sin(60*(np.pi/180)),0],'k-')
 plt.axis('equal')
 plt.show()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+############################################################################################################
+"""
+Plots of the barycentric map with coordinates of RANS, DNS and corrected RANS for x = i ... 
+"""
+
+i = 50
+
+plt.figure()
+#plt.title('DNS %s_Re%i' % (case, Re_test[0]))
+plt.plot(baryMap_DNS[0,i,:],baryMap_DNS[1,i,:],'b.', label = 'DNS')
+plt.plot(baryMap_DNS[0,i,:],baryMap_DNS[1,i,:])
+plt.plot([0,1,0.5,0],[0,0,np.sin(60*(np.pi/180)),0],'k-')
+plt.plot(np.add(test_discr[0,i,:], baryMap_RANS[0,i,:]) ,np.add(test_discr[1,i,:],baryMap_RANS[1,i,:]), 'r.', label='Corrected RANS')
+plt.plot(np.add(test_discr[0,i,:], baryMap_RANS[0,i,:]) ,np.add(test_discr[1,i,:],baryMap_RANS[1,i,:]))
+plt.plot(baryMap_RANS[0,i,:],baryMap_RANS[1,i,:],'k.', label = 'RANS')
+plt.plot(baryMap_RANS[0,i,:],baryMap_RANS[1,i,:], 'k-')
+plt.plot([0,1,0.5,0],[0,0,np.sin(60*(np.pi/180)),0],'k-')
+plt.axis('equal')
+plt.legend()
+plt.show()
+
+i = 105
+
+plt.figure()
+#plt.title('DNS %s_Re%i' % (case, Re_test[0]))
+plt.plot(baryMap_DNS[0,i,:],baryMap_DNS[1,i,:],'b.', label = 'DNS')
+plt.plot(baryMap_DNS[0,i,:],baryMap_DNS[1,i,:])
+plt.plot([0,1,0.5,0],[0,0,np.sin(60*(np.pi/180)),0],'k-')
+plt.plot(np.add(test_discr[0,i,:], baryMap_RANS[0,i,:]) ,np.add(test_discr[1,i,:],baryMap_RANS[1,i,:]), 'r.', label='Corrected RANS')
+plt.plot(np.add(test_discr[0,i,:], baryMap_RANS[0,i,:]) ,np.add(test_discr[1,i,:],baryMap_RANS[1,i,:]))
+plt.plot(baryMap_RANS[0,i,:],baryMap_RANS[1,i,:],'k.', label = 'RANS')
+plt.plot(baryMap_RANS[0,i,:],baryMap_RANS[1,i,:], 'k-')
+plt.plot([0,1,0.5,0],[0,0,np.sin(60*(np.pi/180)),0],'k-')
+plt.axis('equal')
+plt.legend()
+plt.show()
+
+
+
+
+
+meshRANS, U_RANS2, gradU_RANS2, p_RANS2, gradp_RANS2, tau_RANS2, k_RANS2, gradk_RANS2, yWall_RANS2, omega_RANS2, S_RANS2, Omega_RANS2 = RANS(case, Re_test[0], TurbModel, time_end=30000, nx=140, ny=150)
+
+test_discr_bary = test_discr[0:2, :, :]
+plt.figure()
+plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], foam.baryMap_dist(baryMap_RANS,baryMap_DNS), 100, cmap = "Reds")
+plt.colorbar()
+plt.show()
+
+plt.figure()
+newBaryMap = np.add(test_discr_bary, baryMap_RANS) 
+plt.contourf(meshRANS[0,:,:], meshRANS[1,:,:], foam.baryMap_dist(newBaryMap,baryMap_DNS), 100, cmap = "Reds")
+plt.colorbar()
+plt.show()
+
