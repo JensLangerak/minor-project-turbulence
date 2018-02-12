@@ -35,21 +35,22 @@ class Graph:
         for i in range(10):
             self.ys.append([])
         self.ax = []
-        self.fig = plt.figure()
-        plt.interactive(False)
-        for i in range(len(self.ys)):
-            self.ax.append(self.fig.add_subplot(111))
-        plt.ion()
-        self.fig.show()
-        self.fig.canvas.draw()
+        #self.fig = plt.figure()
+        #plt.interactive(False)
+        #for i in range(len(self.ys)):
+        #    self.ax.append(self.fig.add_subplot(111))
+        #plt.ion()
+        #self.fig.show()
+        #self.fig.canvas.draw()
 
     def tick(self):
+        t=0
         #  for i in range(len(ys)):
         #      ax[i].clear()
-        for i in range(len(self.ys)):
-            self.ax[i].plot(self.xs, self.ys[i])
-        self.fig.canvas.draw()
-        plt.pause(0.001)
+        #for i in range(len(self.ys)):
+        #    self.ax[i].plot(self.xs, self.ys[i])
+        #self.fig.canvas.draw()
+        #plt.pause(0.001)
 
 
 class GCPEvolver:
@@ -71,9 +72,9 @@ class GCPEvolver:
         self.target_fitness_score = max_score  # stop when error is smaller than this value.
         self.node_size = 3  # size of a node in the chromosome
 
-        self.population_size = 2 * self.half_population  # + 1 # total population size, +1 for the best previous solution
+        self.population_size = 2 * self.half_population + 1 # total population size, +1 for the best previous solution
         self.nr_features = nr_features
-        self.graph = None #Graph(10)
+        self.graph = Graph(1)
 
         self.openCLExecutor = None
 
@@ -159,9 +160,15 @@ class GCPEvolver:
         return fitness_list
 
     def get_index(self):
+        return 0
         index = self.population_size
         while index > self.population_size - 1:
-            index = math.floor(abs(random.normalvariate(0, 0.05 * self.population_size)))
+            if test_mode == 0:
+                index = math.floor(np.random.exponential(0.1 * self.population_size))
+            elif test_mode == 1:
+                index = math.floor(abs(random.normalvariate(0, 0.1 * self.population_size)))
+            else:
+                index = math.floor(random.triangular(0, self.half_population, 0))
         return index
 
     def create_next_generation(self, fitness_list, population, best_solution):
@@ -201,20 +208,24 @@ class GCPEvolver:
                 else:
                     child_1[j] = parent_2[j]
                     child_2[j] = parent_1[j]
+                    
+                # comment for cross   
+                child_1[j] = best_solution[j]
+                child_2[j] = best_solution[j]
 
                 # apply mutation
                 if random.uniform(0, 1) < self.mutation_chance:
-                    child_1[j] = cgp.translate_item(self.nr_features, j, random.randint(0, 99))
+                    child_1[j] = cgp.translate_item(self.nr_features, j, random.randint(0, self.nr_nodes + self.nr_features))
 
                 if random.uniform(0, 1) < self.mutation_chance:
-                    child_2[j] = cgp.translate_item(self.nr_features, j, random.randint(0, 99))
+                    child_2[j] = cgp.translate_item(self.nr_features, j, random.randint(0, self.nr_nodes + self.nr_features))
 
             # add children to the next generation.
             next_generation[2 * i] = child_1
             next_generation[2 * i + 1] = child_2
 
         # add best solution to the next generation
-        #next_generation[population_size - 1] = best_solution
+        next_generation[self.population_size - 1] = best_solution
         return next_generation
 
     def predict(self, solution, features):
@@ -234,7 +245,14 @@ class GCPEvolver:
             return
         else:
             nodes_used[node_nr] = 1
+            if cgp.number_of_inputs(solution[node_nr * self.node_size + 2]) == 0:
+                return
+
             self.fill_nodes_used(solution, nodes_used, solution[node_nr * self.node_size])
+            
+            if cgp.number_of_inputs(solution[node_nr * self.node_size + 2]) == 1:
+                return
+            
             self.fill_nodes_used(solution, nodes_used, solution[node_nr * self.node_size + 1])
             
         
@@ -246,6 +264,96 @@ class GCPEvolver:
                 replaced[i] = 1
                 solution[i] = new_input_index
     
+    def rearange(self, solution):
+        total_used = 0
+        nodes_used = np.zeros(self.nr_nodes)
+        self.fill_nodes_used(solution, nodes_used, self.nr_nodes - 1 + self.nr_features)
+        self.fill_nodes_used(solution, nodes_used, self.nr_nodes - 2+ self.nr_features)
+        used = nodes_used.sum()
+        total_used += used
+
+        average_gap = (self.nr_nodes - 2) / (used - 2)
+
+        new_solution = [None] * len(solution)
+        last_index = self.nr_nodes - 1
+        map = [-1] * (self.nr_features + self.nr_nodes)
+        for k in range(self.nr_features):
+            map[k] = k
+        if (last_index >= 0):
+            new_solution[last_index * self.node_size] = solution[last_index * self.node_size]
+            new_solution[last_index * self.node_size + 1] = solution[last_index * self.node_size + 1]
+            new_solution[last_index * self.node_size + 2] = solution[last_index * self.node_size + 2]
+            map[last_index + self.nr_features] = last_index + self.nr_features
+
+        last_index = last_index - 1
+        if (last_index >= 0):
+            new_solution[last_index * self.node_size] = solution[last_index * self.node_size]
+            new_solution[last_index * self.node_size + 1] = solution[last_index * self.node_size + 1]
+            new_solution[last_index * self.node_size + 2] = solution[last_index * self.node_size + 2]
+            map[last_index + self.nr_features] = last_index + self.nr_features
+
+        used_count = 0
+        replaced = np.zeros(len(solution))
+        for j in range(self.nr_nodes - 2 - 1, -1, -1):
+            if nodes_used[j] == 1:
+                used_count += 1
+                new_index = math.floor(last_index - (average_gap) * used_count + 0.000000000001)
+                new_solution[new_index * self.node_size] = solution[j * self.node_size]
+                new_solution[new_index * self.node_size + 1] = solution[j * self.node_size + 1]
+                new_solution[new_index * self.node_size + 2] = solution[j * self.node_size + 2]
+                map[j+ self.nr_features] = new_index + self.nr_features
+                #self.replace_index(new_solution, j + self.nr_features, new_index + self.nr_features, replaced)
+        last_node = self.nr_nodes - 2 - 1
+        '''
+        for j in range(self.nr_nodes - 2 - 1, -1, -1):
+            if nodes_used[j] == 0:
+                while new_solution[last_node * self.node_size] is not None and new_solution[last_node * self.node_size] != '':
+                    last_node = last_node-1
+                new_solution[last_node * self.node_size] = solution[last_node * self.node_size]
+                new_solution[last_node * self.node_size + 1] = solution[last_node * self.node_size + 1]
+                new_solution[last_node * self.node_size + 2] = solution[last_node * self.node_size + 2]
+                map[j+ self.nr_features] = j + self.nr_features
+                #self.replace_index(new_solution, j + self.nr_features, last_node + self.nr_features, replaced)
+        '''
+        for j in range(len(new_solution)) :
+            if (new_solution[j] is None):
+                new_solution[j] = solution[j]
+
+        for j in range(self.nr_nodes) :
+            v1 = new_solution[j * self.node_size]
+            v2 = new_solution[j * self.node_size + 1]
+
+            if (v1 is None or v2 is None):
+                t = 3
+
+            if map[v1] != -1:
+                new_solution[j * self.node_size] = map[v1] % ( j + self.nr_features)
+            if map[v2] != -1:
+                new_solution[j * self.node_size + 1] = map[v2] % ( j + self.nr_features)
+            #new_solution[j * self.node_size] = map[v1] % (self.nr_nodes + self.nr_features)
+            #new_solution[j * self.node_size + 1] = map[v2] % (self.nr_nodes + self.nr_features)
+
+        nodes_used2 = np.zeros(self.nr_nodes)
+        self.fill_nodes_used(new_solution, nodes_used2, self.nr_nodes - 1 + self.nr_features)
+        self.fill_nodes_used(new_solution, nodes_used2, self.nr_nodes - 2 + self.nr_features)
+
+        # debug code print result
+
+        tran = cgp.complete_translate(solution, self.nr_features, self.nr_nodes)
+        or1 = (tran[self.nr_nodes + self.nr_features - 1])
+        or2 = (tran[self.nr_nodes + self.nr_features - 2])
+
+        tran = cgp.complete_translate(new_solution, self.nr_features, self.nr_nodes)
+        n1 = (tran[self.nr_nodes + self.nr_features - 1])
+        n2 = (tran[self.nr_nodes + self.nr_features - 2])
+        if (or1 != n1 or or2 != n2):
+            print("Translate Error!")
+            new_solution = solution
+            #raise ValueError('A very specific bad thing happened.')
+
+        print("Number of used nodes: ", total_used )
+        return new_solution
+        
     def rearange_population(self, population):
         total_used = 0
         for i in range(math.floor(len(population))):
@@ -281,28 +389,41 @@ class GCPEvolver:
             for j in range(self.nr_nodes - 2 - 1, -1, -1):
                 if nodes_used[j] == 1:
                     used_count += 1
-                    new_index = math.floor(last_index - (average_gap) * used_count)
+                    new_index = math.floor(last_index - (average_gap) * used_count + 0.000000000001)
                     new_solution[new_index * self.node_size] = solution[j * self.node_size]
                     new_solution[new_index * self.node_size + 1] = solution[j * self.node_size + 1]
                     new_solution[new_index * self.node_size + 2] = solution[j * self.node_size + 2]
                     map[j+ self.nr_features] = new_index + self.nr_features
                     #self.replace_index(new_solution, j + self.nr_features, new_index + self.nr_features, replaced)
             last_node = self.nr_nodes - 2 - 1
+            '''
             for j in range(self.nr_nodes - 2 - 1, -1, -1):
                 if nodes_used[j] == 0:
                     while new_solution[last_node * self.node_size] is not None and new_solution[last_node * self.node_size] != '':
                         last_node = last_node-1
-                    new_solution[last_node * self.node_size] = solution[j * self.node_size]
-                    new_solution[last_node * self.node_size + 1] = solution[j * self.node_size + 1]
-                    new_solution[last_node * self.node_size + 2] = solution[j * self.node_size + 2]
-                    map[j+ self.nr_features] = last_node + self.nr_features
+                    new_solution[last_node * self.node_size] = solution[last_node * self.node_size]
+                    new_solution[last_node * self.node_size + 1] = solution[last_node * self.node_size + 1]
+                    new_solution[last_node * self.node_size + 2] = solution[last_node * self.node_size + 2]
+                    map[j+ self.nr_features] = j + self.nr_features
                     #self.replace_index(new_solution, j + self.nr_features, last_node + self.nr_features, replaced)
+            '''
+            for j in range(len(new_solution)) :
+                if (new_solution[j] is None):
+                    new_solution[j] = solution[j]
 
             for j in range(self.nr_nodes) :
                 v1 = new_solution[j * self.node_size]
                 v2 = new_solution[j * self.node_size + 1]
-                new_solution[j * self.node_size] = map[v1]
-                new_solution[j * self.node_size + 1] = map[v2]
+
+                if (v1 is None or v2 is None):
+                    t = 3
+
+                if map[v1] != -1:
+                    new_solution[j * self.node_size] = map[v1] % ( j + self.nr_features)
+                if map[v2] != -1:
+                    new_solution[j * self.node_size + 1] = map[v2] % ( j + self.nr_features)
+                #new_solution[j * self.node_size] = map[v1] % (self.nr_nodes + self.nr_features)
+                #new_solution[j * self.node_size + 1] = map[v2] % (self.nr_nodes + self.nr_features)
 
             nodes_used2 = np.zeros(self.nr_nodes)
             self.fill_nodes_used(new_solution, nodes_used2, self.nr_nodes - 1 + self.nr_features)
@@ -369,24 +490,41 @@ class GCPEvolver:
                     self.graph.xs.append(g)
                     interval = math.floor(self.population_size / len(self.graph.ys))
                     for i in range(len(self.graph.ys)):
-                        self.graph.ys[i].append(fitness_list[interval * i][1])
+                            self.graph.ys[i].append(-1 / fitness_list[interval * i][1])
+                    
+                   # if test_mode == 0:
+                   #     exp[test_index].append(fitness_list[0][1])
+                   # elif test_mode == 1:
+                   #     norm[test_index].append(fitness_list[0][1])
+                   # else:
+                   #     lin[test_index].append(fitness_list[0][1])
+                    #mut[test_index].append(fitness_list[0][1])
+                    
                     self.graph.tick()
 
                 print("Generation ", g, ", smallest error: ", fitness_list[0][1], ", error median: ",
                       fitness_list[self.half_population][1], ", diversity: ", "") #diversity(population))
 
-                population = self.create_next_generation(fitness_list, population, best_solution)
-               # if g % 100 == 0:
-               #     if not np.isfinite(fitness_list[0][1]):
-               #         print ("Replace population with backup")
-               #         population = backup
-               #     else:
-               #         backup = population
-               #         self.rearange_population(population)
-               #         nodes_used2 = np.zeros(self.nr_nodes)
-               #         self.fill_nodes_used(best_solution, nodes_used2, self.nr_nodes - 1 + self.nr_features)
-               #         self.fill_nodes_used(best_solution, nodes_used2, self.nr_nodes - 2 + self.nr_features)
-               #         print("Nodes used for best: ", np.sum(nodes_used2))
+                population = self.create_next_generation(fitness_list, population, self.rearange(population[fitness_list[0][0]]))
+                if False and g % 10 == 0:
+                    if not np.isfinite(fitness_list[0][1]):
+                        print ("Replace population with backup")
+                        population = backup
+                    else:
+                        backup = population
+                        self.rearange_population(population)
+                        
+                      #  fitness_list2 = self.openCLExecutor.execute(population)
+                      #  fitness_list2.sort(key=lambda i: i[1], reverse=True) 
+                        
+                      #  fitness_list = self.openCLExecutor.execute(backup)
+                      #  fitness_list.sort(key=lambda i: i[1], reverse=True)
+                      #  if (fitness_list2[0][1]!= fitness_list[0][1]):
+                      #      br = 0
+                        nodes_used2 = np.zeros(self.nr_nodes)
+                        self.fill_nodes_used(best_solution, nodes_used2, self.nr_nodes - 1 + self.nr_features)
+                        self.fill_nodes_used(best_solution, nodes_used2, self.nr_nodes - 2 + self.nr_features)
+                        print("Nodes used for best: ", np.sum(nodes_used2))
 
         # Stop when ctrl-c is pressed
         except KeyboardInterrupt:
@@ -403,7 +541,11 @@ class OpenCLExecutor:
         self.reference_np = np.asarray(reference, dtype=np.float32)
         self.result_np = np.empty(self.nr_points, dtype=np.float32)
 
-        self.ctx = cl.create_some_context(interactive=True)
+        #self.ctx = cl.create_some_context(interactive=True, answers=None, cache_dir=None)
+        platform = cl.get_platforms()[0]    # Select the first platform [0]
+        device = platform.get_devices()[0]  # Select the first device on this platform [0]
+        self.ctx = cl.Context([device])      # Create a context with your device
+        
         self.queue = cl.CommandQueue(self.ctx)
         self.mf = cl.mem_flags
 
@@ -438,15 +580,45 @@ class OpenCLExecutor:
               } else if(op == 3) {
                 float safe_offset = 0;//(i2 > 0) ? FLT_EPSILON : -FLT_EPSILON;
                 inputs[i + nr_features] = i1 / (i2 + safe_offset);    
-              }                  
+              } else if (op == 4) {
+               inputs[i + nr_features] = tanh(i1);
+              } else if(op == 5) {
+               inputs[i + nr_features] = cos(i1);
+              } else if (op == 6) {
+               inputs[i + nr_features] = tan(i1);
+              } else if(op == 7) {
+               inputs[i + nr_features] = cosh(i1);
+              } else if(op == 8) {
+               inputs[i + nr_features] = M_PI;
+              } else if(op == 9) {
+               inputs[i + nr_features] = M_E;
+              } else if(op == 10) {
+               inputs[i + nr_features] = pow(i1,i2);
+              } else if (op == 11) {
+               inputs[i + nr_features] = acos(i1);
+              } else if(op == 12) {
+               inputs[i + nr_features] = atan(i1);
+              } else if (op == 13) {
+               inputs[i + nr_features] = acosh(i1);
+              } else if(op == 14) {
+               inputs[i + nr_features] = atanh(i1);
+              } else if(op == 15) {
+               inputs[i + nr_features] = sqrt(i1);
+              } else if(op == 16) {
+               inputs[i + nr_features] = 1;
+              } else if(op == 17) {
+               inputs[i + nr_features] = log(i1);
+              }
+                           
+              
+              
           }
           float result1= inputs[nr_features + nr_nodes -1] - r_g[2 * gid];
           float result2= inputs[nr_features + nr_nodes -2] - r_g[2 * gid + 1];
+       //   result1 /= sqrt(r_g[2 * gid] * r_g[2 * gid] + 0.00001);
           float result = sqrt(result1 * result1 + result2 * result2);
-
-          //res_g[gid] = 1 / (result + 0.02);
-          //res_g[gid]  = 1 / (result + 0.9) - result;
-
+       //   result2 /= sqrt(r_g[2 * gid + 1] * r_g[2 * gid + 1] + 0.00001);
+         //     res_g[gid]  = 1 / (result + 0.2) - result;
           res_g[gid] = -result;
         }
         """).build()
@@ -478,20 +650,45 @@ class OpenCLExecutor:
               float i2 = inputs[id2];
              // result_predict_g[3] = i1;
              // result_predict_g[4] = i2;
-              if(op == 0) {
+                           if(op == 0) {
                   inputs[i + nr_features] = i1 + i2;
-              //    result_predict_g[5] = 5;
               } else if(op == 1) {
                   inputs[i + nr_features] = i1 - i2;
-             //                       result_predict_g[6] = 5;
               } else if(op == 2) {
                   inputs[i + nr_features] = i1 * i2;
-            //                        result_predict_g[7] = 5;
               } else if(op == 3) {
                 float safe_offset = 0;//(i2 > 0) ? FLT_EPSILON : -FLT_EPSILON;
-                inputs[i + nr_features] = i1 / (i2 + safe_offset);  
-            //                      result_predict_g[5] = 8;
-              }     
+                inputs[i + nr_features] = i1 / (i2 + safe_offset);    
+              } else if (op == 4) {
+               inputs[i + nr_features] = tanh(i1);
+              } else if(op == 5) {
+               inputs[i + nr_features] = cos(i1);
+              } else if (op == 6) {
+               inputs[i + nr_features] = tan(i1);
+              } else if(op == 7) {
+               inputs[i + nr_features] = cosh(i1);
+              } else if(op == 8) {
+               inputs[i + nr_features] = M_PI;
+              } else if(op == 9) {
+               inputs[i + nr_features] = M_E;
+              } else if(op == 10) {
+               inputs[i + nr_features] = pow(i1,i2);
+              } else if (op == 11) {
+               inputs[i + nr_features] = acos(i1);
+              } else if(op == 12) {
+               inputs[i + nr_features] = atan(i1);
+              } else if (op == 13) {
+               inputs[i + nr_features] = acosh(i1);
+              } else if(op == 14) {
+               inputs[i + nr_features] = atanh(i1);
+              } else if(op == 15) {
+               inputs[i + nr_features] = sqrt(i1);
+              } else if(op == 16) {
+               inputs[i + nr_features] = 1;
+              } else if(op == 17) {
+               inputs[i + nr_features] = log(i1);
+              }
+              
            //   }
           }
           result_predict_g[gid * 2] =  inputs[nr_features + nr_nodes -1];
@@ -555,12 +752,15 @@ print (tra[evolver.nr_nodes+evolver.nr_features -1])
 print (tra[evolver.nr_nodes+evolver.nr_features -2])
 '''
 
-'''
+"""
+   Generate test data
+"""
+
 ref = []
 f = []
 scale = 100
 xs = []
-for i in range(-5*scale, 5*scale, 1):
+for i in range(-10*scale, 10*scale, 1):
     x = i / scale
     f += [[x]]
     #res = 2 * x - 3 * y + 4 * z - u * x
@@ -568,13 +768,67 @@ for i in range(-5*scale, 5*scale, 1):
     ref += [[res, res]]
     xs += [x]
 
+'''
+exp = []
+norm = []
+lin = []
 
-evolver = GCPEvolver(half_population=250, nr_nodes=200, mutation_chance=0.002, max_score=700000000, nr_features=1)
+test_mode = 0
 
-result = evolver.evolve(f, ref)
+for test_index in range(20):
+    print ("Iteration: " + str(test_index))
+    exp.append([])
+    norm.append([])
+    lin.append([])
+    test_mode = 0
+    print ("Exp: " )
+    evolver = GCPEvolver(half_population=20, nr_nodes=100, mutation_chance=0.05, max_score=700000000, nr_features=1)
+    evolver.evolve(f, ref)
+    test_mode = 1
+    print ("Normal: " )
+    evolver = GCPEvolver(half_population=20, nr_nodes=100, mutation_chance=0.05, max_score=700000000, nr_features=1)
+    evolver.evolve(f, ref)
+    test_mode = 2
+    print ("Lin: " )
+    evolver = GCPEvolver(half_population=20, nr_nodes=100, mutation_chance=0.05, max_score=700000000, nr_features=1)
+    evolver.evolve(f, ref)
+'''
+'''
+lin2 = []
+for test_index in range(20):
+    lin2.append([])
+    for i in range(100):
+        lin2[test_index].append(lin[test_index][i])
+test_index = 0
+test_mode = 0
 
+mut = []
+for test_index in range(20):
+    mut.append([])
+    evolver = GCPEvolver(half_population=20, nr_nodes=100, mutation_chance=0.05, max_score=700000000, nr_features=1)
+    evolver.evolve(f, ref)
 
+mut2 = []
+for test_index in range(20):
+    mut2.append([])
+    for i in range(100):
+        mut2[test_index].append(mut[test_index][i])
+'''
+'''
+#result = evolver.evolve(f, ref)
+plt.plot(evolver.graph.xs, np.array(exp).sum(axis=0) / len(f), label="Exponential")
+plt.plot(evolver.graph.xs, np.array(norm).sum(axis=0)  / len(f), label="Half-Normal")
+plt.plot(evolver.graph.xs, np.array(lin).sum(axis=0)  / len(f), label="Linear")
+#plt.plot(evolver.graph.xs, np.array(mut2).sum(axis=0)  / len(f), label="Mutation")
+plt.legend()
+plt.ylabel('Fitness score')
+plt.xlabel('Generation')
+plt.show()
+'''
+'''
 #debug code print result
+evolver = GCPEvolver(half_population=100, nr_nodes=400, mutation_chance=0.05, max_score=700000000, nr_features=1)
+result = evolver.evolve(f, ref) 
 tran = cgp.complete_translate(result, evolver.nr_features, evolver.nr_nodes)
 
 print( tran[ evolver.nr_nodes + evolver.nr_features- 1])
@@ -587,10 +841,13 @@ refp = [row[0] for row in ref]
 r1 = [row[0] for row in predict]
 r2 = [row[1] for row in predict]
 
-plt.axis((-5,5,-2,2))
+plt.axis((-10,10,-4,2))
 plt.plot(xs, refp, 'r')
 plt.plot(xs, r1, 'b')
 plt.plot(xs, r2, 'g')
 plt.show()
-'''
 
+plt.plot(evolver.graph.xs, evolver.graph.ys[0])
+
+#input()
+'''

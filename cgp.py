@@ -25,9 +25,9 @@ import math
 import numpy as np
 node_size = 3  # How many numbers are needed for one node. Two for the input and one to determine the operation.
 outputs = 2  # Number of outputs that should be returned.
-operations = 4  # Number of supported operations.
+operations = 17  # Number of supported operations.
 
-operation_list = ['+', '-', '*', '/']
+operation_list = ['+', '-', '*', '/', 'tanh', 'cos', 'tan', 'cosh', 'PI','sqrt' , 'log' , 'e', 'pow', 'acos', 'atan',  'acosh', 'atanh','1']
 
 def translate(nr_features, chromosome):
     """
@@ -205,8 +205,12 @@ def complete_translate(cgp_program, nr_features, nr_nodes):
     for n in range(nr_nodes):
         base = n * node_size
         d = n + nr_features
-        completeTranslate[d] = "(" + completeTranslate[cgp_program[base]] + " " + cgp_program[base + 2] + " " + \
-                               completeTranslate[cgp_program[base + 1]] + ")"
+        if (number_of_inputs(cgp_program[base + 2]) == 1) :
+            completeTranslate[d] =  cgp_program[base + 2] + "(" + completeTranslate[cgp_program[base]] + ")"
+        elif (number_of_inputs(cgp_program[base + 2]) == 0) :
+            completeTranslate[d] =  cgp_program[base + 2]
+        else:
+            completeTranslate[d] = "(" + completeTranslate[cgp_program[base]] + " " + cgp_program[base + 2] + " " + completeTranslate[cgp_program[base + 1]] + ")"
 
     return completeTranslate
 
@@ -223,10 +227,75 @@ def translate_operation_to_ints(cgp_program):
             k = 2
         if k == '/':
             k = 3
+        if k == 'tanh':
+            k = 4
+        if k == 'cos':
+            k = 5
+        if k == 'tan':
+            k = 6
+        if k == 'cosh':
+            k = 7
+        if k == 'PI':
+            k = 8
+        if k == 'e':
+            k = 9
+        if k == 'pow':
+            k = 10
+        if k == 'acos':
+            k = 11
+        if k == 'atan':
+            k = 12
+        if k == 'acosh':
+            k = 13
+        if k == 'atanh':
+            k = 14
+        if k == 'sqrt':
+            k = 15
+        if k == '1':
+            k = 16
+        if k == 'log':
+            k = 17
         res[i] = k
     return res
 
-
+def number_of_inputs(k):
+        if k == '+':
+            return 2
+        if k == '-':
+            return 2
+        if k == '*':
+            return 2
+        if k == '/':
+            return 2
+        if k == 'tanh':
+             return 1
+        if k == 'cos':
+             return 1
+        if k == 'tan':
+             return 1
+        if k == 'cosh':
+             return 1
+        if k == 'PI':
+             return 0
+        if k == 'e':
+             return 0
+        if k == 'pow':
+             return 2
+        if k == 'acos':
+             return 1
+        if k == 'atan':
+             return 1
+        if k == 'acosh':
+             return 1
+        if k == 'atanh':
+             return 1
+        if k == 'sqrt':
+             return 1
+        if k == '1':
+             return 0
+        if k == 'log':
+             return 1
+        return 2
 
 
 #createListnodes(sol, nr_features)
